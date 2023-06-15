@@ -8,6 +8,7 @@ def init_client():
     p.setGravity(0, 0, -9.81)
     p.setAdditionalSearchPath(pybullet_data.getDataPath())
     p.setRealTimeSimulation(0)  # not real time
+    p.setTimeStep(0.02)
     client_inited = True
     return client_inited
 
@@ -16,17 +17,20 @@ class CartPole:
         if not client_init:
             init_client()
         urdf_file = "cartpole.urdf"
-        self.id = p.loadURDF(urdf_file, [0, 0, 0])
         self.nState = 4
         self.nControl = 1
-        p.setTimeStep(0.02)
-        self.state = np.zeros(self.nState)
+        self.id = p.loadURDF(urdf_file, [0, 0, 0])
+        p.changeDynamics(self.id, -1, linearDamping=0, angularDamping=0)
+        p.changeDynamics(self.id, 0, linearDamping=0, angularDamping=0)
+        p.changeDynamics(self.id, 1, linearDamping=0, angularDamping=0)
+        p.setJointMotorControl2(self.id, 1, p.VELOCITY_CONTROL, force=0)
+        p.setJointMotorControl2(self.id, 0, p.VELOCITY_CONTROL, force=0)
+        self.state = []
 
     @property
     def get_id(self):
         return self.id
 
-    @property
     def get_state(self):
         # [x, x_dot, theta, theta_dot]
         state = p.getJointState(self.id, 0)[0:2] + p.getJointState(self.id, 1)[0:2]
@@ -36,15 +40,18 @@ class CartPole:
     def execute(self, force):
         p.setJointMotorControl2(self.id, 0, p.TORQUE_CONTROL, force=force)
         p.stepSimulation()
-        # self.state = self.get_state()
+
 
 
 if __name__ == '__main__':
     cart_pole = CartPole()
+    force = 122
+    for i in range(100000):
 
-    for _ in range(100000):
-        cart_pole.execute(10)
+        cart_pole.execute(force)
         time.sleep(0.02)
+        print(cart_pole.get_state())
+        force = -force
 
 
 

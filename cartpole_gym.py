@@ -168,3 +168,12 @@ class CartPoleContinuousBulletEnv(CartPoleBulletEnv):
     def __init__(self, renders=False):
         # start the bullet physics server
         CartPoleBulletEnv.__init__(self, renders, discrete_actions=False)
+
+
+if __name__ == '__main__':
+    cart_pole = CartPoleBulletEnv(True)
+    cart_pole.reset()
+    for _ in range(100000):
+        cart_pole.step(10)
+        time.sleep(0.02)
+
