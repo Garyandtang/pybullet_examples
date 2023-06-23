@@ -2,6 +2,7 @@ import pybullet as p
 import time
 import pybullet_data
 import numpy as np
+from gym.utils import seeding
 
 def init_client():
     physics_client = p.connect(p.GUI)
@@ -11,6 +12,7 @@ def init_client():
     p.setTimeStep(0.02)
     client_inited = True
     return client_inited
+
 
 class CartPole:
     def __init__(self, client_init=False):
@@ -25,7 +27,11 @@ class CartPole:
         p.changeDynamics(self.id, 1, linearDamping=0, angularDamping=0)
         p.setJointMotorControl2(self.id, 1, p.VELOCITY_CONTROL, force=0)
         p.setJointMotorControl2(self.id, 0, p.VELOCITY_CONTROL, force=0)
-        self.state = []
+        self.seed()
+        randstate = self.np_random.uniform(low=-0.05, high=0.05, size=(4,))
+        p.resetJointState(self.id, 0, randstate[0], randstate[1])
+        p.resetJointState(self.id, 1, randstate[2], randstate[3])
+        self.state = self.get_state()
 
     @property
     def get_id(self):
@@ -41,19 +47,23 @@ class CartPole:
         p.setJointMotorControl2(self.id, 0, p.TORQUE_CONTROL, force=force)
         p.stepSimulation()
 
+    def seed(self, seed=None):
+        self.np_random, seed = seeding.np_random(seed)
+        return [seed]
 
+def p_controller(state):
+    kp = 4
+    theta = state[2]
+    u = -kp*theta
+    return u
 
 if __name__ == '__main__':
     cart_pole = CartPole()
-    force = 122
     for i in range(100000):
-
-        cart_pole.execute(force)
-        time.sleep(0.02)
+        u = p_controller(cart_pole.get_state())
+        cart_pole.execute(u)
         print(cart_pole.get_state())
-        force = -force
-
-
+        time.sleep(0.02)
 
 #
 # # set up PyBullet physics simulation
