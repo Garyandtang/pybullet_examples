@@ -41,7 +41,9 @@ class Task(str, Enum):
 
     STABILIZATION = 'stabilization'  # Stabilization task.
     TRAJ_TRACKING = 'traj_tracking'  # Trajectory tracking task.
-class BenchmarkEnv(gym.Env, ABC):
+
+
+class BaseEnv:
     _count = 0
     NAME = 'base'
 
@@ -67,17 +69,15 @@ class BenchmarkEnv(gym.Env, ABC):
             'high': 0.05
         }
     }
-
-    def __int__(self,
-                gui: bool = False,
-                task: Task = Task.STABILIZATION,
-                randomized_init: bool = True,
-                pyb_freq: int = 50,
-                ctrl_freq: int = 50):
-        self.idx = self.__class__._count
-        self.__class__._count += 1
+    def __init__(self,
+                 gui: bool = True,
+                 task: Task = Task.STABILIZATION,
+                 randomized_init: bool = True,
+                 pyb_freq: int = 50,
+                 ctrl_freq: int = 50,
+                 **kwargs):
         self.GUI = gui
-        self.task = task
+        self.Task = task
         self.CTRL_FREQ = ctrl_freq
         self.PYB_FREQ = pyb_freq
         if self.PYB_FREQ % self.CTRL_FREQ != 0:
@@ -90,7 +90,7 @@ class BenchmarkEnv(gym.Env, ABC):
     def before_reset(self, seed=None):
         pass
 
-class CartPole(BenchmarkEnv):
+class CartPole(BaseEnv):
     NAME = 'cartpole'
     URDF_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'assets', 'cartpole_template.urdf')
 
@@ -125,7 +125,7 @@ class CartPole(BenchmarkEnv):
         self.rew_exponential = rew_exponential
         self.done_on_out_of_bound = done_on_out_of_bound
         # todo: super class!!
-        super().__init__(init_state=init_state, inertial_prop=inertial_prop, **kwargs)
+        super().__init__()
 
         # create a PyBullet client connection
         self.PYB_CLIENT = -1
@@ -134,7 +134,7 @@ class CartPole(BenchmarkEnv):
         else:
             self.PYB_CLIENT = p.connect(p.DIRECT)
         # disable urdf caching for randomization via reload urdf
-        p.setPhysicsEngineParameter(enableFileCoaching=0)
+        p.setPhysicsEngineParameter(enableFileCaching=1)
 
         # set gui and rendering size
         self.RENDER_HEIGHT = int(200)
@@ -167,7 +167,7 @@ class CartPole(BenchmarkEnv):
 
         # Create X_GOAL and U_GOAL references for the assigned task.
         self.U_GOAL = np.zeros(1)
-        if self.TASK == Task.STABILIZATION:
+        if self.Task == Task.STABILIZATION:
             self.X_GOAL = np.array([1, 0, 0, 0])
         else:
             raise ValueError('[ERROR] in CartPole.__init__(), TASK TYPE')
@@ -196,7 +196,7 @@ class CartPole(BenchmarkEnv):
         override_urdf_tree.write(self.override_path)
 
         self.CARTPOLE_ID = p.loadURDF(
-            self.override_path,
+            self.URDF_PATH,
             basePosition=[0, 0, 0],
             physicsClientId=self.PYB_CLIENT)
         # Remove cache file after loading it into PyBullet.
@@ -364,3 +364,5 @@ class CartPole(BenchmarkEnv):
 if __name__ == '__main__':
     print("start")
     cart_pole = CartPole()
+    while 1:
+        pass
