@@ -71,24 +71,41 @@ class BaseEnv:
     }
     def __init__(self,
                  gui: bool = True,
+                 seed=None,
                  task: Task = Task.STABILIZATION,
                  randomized_init: bool = True,
                  pyb_freq: int = 50,
                  ctrl_freq: int = 50,
+                 output_dir: str = None,
                  **kwargs):
+        self.idx = self.__class__._count
+        self.__class__._count += 1
         self.GUI = gui
         self.Task = task
         self.CTRL_FREQ = ctrl_freq
         self.PYB_FREQ = pyb_freq
         if self.PYB_FREQ % self.CTRL_FREQ != 0:
-            raise ValueError('[ERROR] in BenchmarkEnv.__init__(), pyb_freq is not divisible by env_freq.')
+            raise ValueError('[ERROR] in BaseEnv.__init__(), pyb_freq is not divisible by env_freq.')
         self.PYB_STEPS_PER_CTRL = int(self.PYB_FREQ / self.CTRL_FREQ)
         self.CTRL_TIMESTEP = 1. / self.CTRL_FREQ
         self.PYB_TIMESTEP = 1. / self.PYB_FREQ
         self.RANDOMIZED_INIT = randomized_init
+        if output_dir is None:
+            output_dir = os.getcwd()
+        self.output_dir = output_dir
+        self.np_random, seed = seeding.np_random(seed)
+        self.seed(seed)
 
     def before_reset(self, seed=None):
         pass
+
+    def seed(self, seed):
+        self.np_random, seed = seeding.np_random(seed)
+        # todo: seed for action space and disturbs
+        # self.action_space.seed(seed)
+        # for _, disturbs in self.disturbances.items():
+        #     disturbs.seed(self)
+        return [seed]
 
 class CartPole(BaseEnv):
     NAME = 'cartpole'
@@ -364,5 +381,6 @@ class CartPole(BaseEnv):
 if __name__ == '__main__':
     print("start")
     cart_pole = CartPole()
+    cart_pole.reset()
     while 1:
         pass
