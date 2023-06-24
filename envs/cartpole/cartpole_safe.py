@@ -21,6 +21,7 @@ from gymnasium import spaces
 
 from envs.benchmark_env import BenchmarkEnv, Cost, Task
 from envs.constraints import SymmetricStateConstraint, GENERAL_CONSTRAINTS
+from envs.symbolic_systems import SymbolicModel
 # from safe_control_gym.math_and_models.symbolic_systems import SymbolicModel
 # from safe_control_gym.math_and_models.normalization import normalize_angle
 

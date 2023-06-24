@@ -8,7 +8,7 @@ Also see:
     * github.com/bulletphysics/bullet3/blob/master/examples/pybullet/gym/pybullet_envs/bullet/cartpole_bullet.py
     * https://github.com/utiasDSL/safe-control-gym/blob/main/safe_control_gym/envs/gym_control/cartpole.py
 '''
-
+import abc
 import os
 import copy
 import math
@@ -23,6 +23,7 @@ import pybullet_data
 from gymnasium import spaces
 from abc import ABC, abstractmethod
 from gym.utils import seeding
+from symbolic_system import FirstOrderModel
 
 # from safe_control_gym.math_and_models.symbolic_systems import SymbolicModel
 # from safe_control_gym.math_and_models.normalization import normalize_angle
@@ -36,6 +37,7 @@ def init_client():
     client_inited = True
     return client_inited
 
+
 class Task(str, Enum):
     '''Environment tasks enumeration class.'''
 
@@ -43,32 +45,10 @@ class Task(str, Enum):
     TRAJ_TRACKING = 'traj_tracking'  # Trajectory tracking task.
 
 
-class BaseEnv:
+class BaseEnv(gym.Env, abc.ABC):
     _count = 0
     NAME = 'base'
 
-    INIT_STATE_RAND_INFO = {
-        'init_x': {
-            'distrib': 'uniform',
-            'low': -0.05,
-            'high': 0.05
-        },
-        'init_x_dot': {
-            'distrib': 'uniform',
-            'low': -0.05,
-            'high': 0.05
-        },
-        'init_theta': {
-            'distrib': 'uniform',
-            'low': -0.05,
-            'high': 0.05
-        },
-        'init_theta_dot': {
-            'distrib': 'uniform',
-            'low': -0.05,
-            'high': 0.05
-        }
-    }
     def __init__(self,
                  gui: bool = True,
                  seed=None,
@@ -111,6 +91,28 @@ class CartPole(BaseEnv):
     NAME = 'cartpole'
     URDF_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'assets', 'cartpole_template.urdf')
 
+    INIT_STATE_RAND_INFO = {
+        'init_x': {
+            'distrib': 'uniform',
+            'low': -0.05,
+            'high': 0.05
+        },
+        'init_x_dot': {
+            'distrib': 'uniform',
+            'low': -0.05,
+            'high': 0.05
+        },
+        'init_theta': {
+            'distrib': 'uniform',
+            'low': -0.05,
+            'high': 0.05
+        },
+        'init_theta_dot': {
+            'distrib': 'uniform',
+            'low': -0.05,
+            'high': 0.05
+        }
+    }
     def __init__(self,
                  init_state=None,
                  inertial_prop=None,
@@ -162,9 +164,9 @@ class CartPole(BaseEnv):
         self.nState = 4
         self.nControl = 1
         if init_state is None:
-            self.INIT_X, self.INIT_X_DOT, self.INIT_THETA, self.INIT_THETA_DOT = np.zeros(self.nState)
+            self.INIT_X, self.INIT_THETA, self.INIT_X_DOT, self.INIT_THETA_DOT = np.zeros(self.nState)
         elif isinstance(init_state, np.ndarray) and len(init_state) == self.nState:
-            self.INIT_X, self.INIT_X_DOT, self.INIT_THETA, self.INIT_THETA_DOT = init_state
+            self.INIT_X, self.INIT_THETA, self.INIT_X_DOT, self.INIT_THETA_DOT = init_state
         else:
             raise ValueError('[ERROR] in CartPole.__init__(), init_state, type: {}, size: {}'.format(type(init_state),
                                                                                                      len(init_state)))
@@ -267,11 +269,12 @@ class CartPole(BaseEnv):
         return self.id
 
     def get_state(self):
-        # [x, x_dot, theta, theta_dot]
-        state = np.hstack(
-            (p.getJointState(self.CARTPOLE_ID, jointIndex=0,
-                             physicsClientId=self.PYB_CLIENT)[0:2],
-             p.getJointState(self.CARTPOLE_ID, jointIndex=1, physicsClientId=self.PYB_CLIENT)[0:2]))
+        # [x, theta, x_dot, theta_dot]
+        x = p.getJointState(self.CARTPOLE_ID, jointIndex=0, physicsClientId=self.PYB_CLIENT)[0]
+        x_dot = p.getJointState(self.CARTPOLE_ID, jointIndex=0, physicsClientId=self.PYB_CLIENT)[1]
+        theta = p.getJointState(self.CARTPOLE_ID, jointIndex=1, physicsClientId=self.PYB_CLIENT)[0]
+        theta_dot = p.getJointState(self.CARTPOLE_ID, jointIndex=1, physicsClientId=self.PYB_CLIENT)[1]
+        state = np.hstack((x, theta, x_dot, theta_dot))
 
         self.state = np.array(state)
         return self.state
@@ -375,12 +378,57 @@ class CartPole(BaseEnv):
                 randomized_values[key] += distrib(*d_args, **d_kwargs)
         return randomized_values
 
-    def _setup_symbolic(self):
-        pass
+    def _setup_symbolic(self, prior_prob={}):
+        l = prior_prob.get("pole_length", self.EFFECTIVE_POLE_LENGTH)
+        m = prior_prob.get("pole_mass", self.POLE_MASS) # m2
+        M = prior_prob.get("cart_mass", self.CART_MASS) # m1
+        Mm, ml = m + M, m * l
+        g = self.GRAVITY
+        dt = self.CTRL_TIMESTEP
+        # Input variable
+        q1 = cs.MX.sym('q1')    # x
+        q2 = cs.MX.sym('q2')    # theta
+        dq1 = cs.MX.sym('dq1')  # x_dot
+        dq2 = cs.MX.sym('dq2')  # theta_dot
+        q = cs.vertcat(q1, q2)
+        dq = cs.vertcat(dq1, dq2)
+        X = cs.vertcat(q, dq)
+        U = cs.MX.sym('U')
+        nx = self.nState
+        nu = self.nControl
+        # todo: it is different from safe-control-gym, check whether correct?
+        ddq1 = (ml * cs.sin(q2) * dq2**2 + U + m * g * cs.cos(q2) * cs.sin(q2)) / (M + m * (1 - cs.cos(q2)**2))
+        ddq2 = -(ml * cs.cos(q2) * cs.sin(q2) * dq2**2 + U * cs.cos(q2) + Mm * g * cs.sin(q2)) / (l * M + ml * (1 - cs.cos(q2)**2))
+        ddq = cs.vertcat(ddq1, ddq2)
+        X_dot = cs.vertcat(dq, ddq)
+        # observation
+        Y = cs.vertcat(q, dq)
+        # define cost (quadratic form)
+        Q = cs.MX.sym('Q', nx, nx)
+        R = cs.MX.sym('R', nu, nu)
+        Xr = cs.MX.sym('Xr', nx, 1)
+        Ur = cs.MX.sym('Ur', nu, 1)
+        cost_func = 0.5 * (X - Xr).T @ Q @ (X - Xr) + 0.5 * (U - Ur).T * R * (U - Ur)
+        # define dyn and cost dictionaries
+        first_dynamics = {'dyn_eqn': X_dot, 'obs_eqn': Y, 'vars': {'X': X, 'U': U}}
+        cost = {'cost_func': cost_func, 'vars': {'X': X, 'Xr': Xr, 'U': U, 'Ur': Ur, 'Q': Q, 'R': R}}
+        # parameters
+        params = {
+            # prior inertial properties
+            'pole_length': l,
+            'pole_mass': m,
+            'cart_mass': M,
+            # equilibrium point for linearization
+            'X_EQ': np.zeros(self.nState),
+            'U_EQ': np.zeros(self.nControl)  # np.atleast_2d(self.U_GOAL)[0, :],
+        }
+        self.symbolic = FirstOrderModel(dynamics=first_dynamics, cost=cost, params=params)
+
 
 if __name__ == '__main__':
     print("start")
     cart_pole = CartPole()
     cart_pole.reset()
+    print("cart pole dyn func: {}".format(cart_pole.symbolic.fc_func))
     while 1:
         pass
