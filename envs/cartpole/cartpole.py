@@ -12,6 +12,7 @@ import abc
 import os
 import copy
 import math
+import time
 from enum import Enum
 import xml.etree.ElementTree as etxml
 from copy import deepcopy
@@ -78,8 +79,59 @@ class BaseEnv(gym.Env, abc.ABC):
         self.np_random, seed = seeding.np_random(seed)
         self.seed(seed)
 
+        self.inited = False
+        self.in_reset = False
+        self.pyb_step_counter = 0
+        self.ctrl_step_counter = 0
+        self.current_raw_action = None
+        self.current_physical_action = None  # current_raw_action unnormalized if it was normalized
+        self.current_noisy_physical_action = None  # current_physical_action with noise added
+        self.current_clipped_action = None  # current_noisy_physical_action clipped to physical action bounds
+
+        self._set_action_space()
+
     def before_reset(self, seed=None):
-        pass
+        self.inited = True
+        self.in_reset = True
+
+    def before_step(self, action):
+        """
+
+        :param action (ndarray/scalar): The raw action returned by the controller.
+        :return: action (ndarray): the processed action to be executed
+        """
+        if not self.inited:
+            raise ValueError('[ERROR]: not init before call step().')
+
+        action = np.atleast_1d(action)
+        if action.ndim != 1 or action[0] is None:
+            raise ValueError('[ERROR]: The action returned by the controller must be 1 dimensional.')
+
+        self.current_raw_action = action
+
+        processed_action = self._preprocess_control(action)
+
+        return processed_action
+
+    @abstractmethod
+    def _preprocess_control(self, action):
+        raise NotImplementedError
+
+    @abstractmethod
+    def _denormalize_action(self, action):
+        """converts a normalized action into a physical action, only need in RL-based action
+        :param action (ndarray):
+        :return: action (ndarray):
+        """
+        raise NotImplementedError
+
+    @abstractmethod
+    def _set_action_space(self):
+        """
+        Defines the action space of the environment
+        :return: None
+        """
+        raise NotImplementedError
 
     def seed(self, seed):
         self.np_random, seed = seeding.np_random(seed)
@@ -269,6 +321,43 @@ class CartPole(BaseEnv):
 
         return self.get_state()
 
+    def step(self, action):
+        """
+
+        :param action (ndarray): the action applied to the environments for teh step
+        :return:
+            obs (ndarray): the observation (y) of the environment after the step
+            reward (float): the scalar reward/cost of the step
+            done (bool): whether the conditions for the end of an episode are met in the step
+            info (dict): a dictionary with information about the constraints evaluations and violations
+        """
+        force = super().before_step(action)  # return processed scalar action
+
+        self._apply_force(force)
+
+        self.state = self.get_state()
+
+        return self.state, None, None, None
+
+    def _apply_force(self, force):
+        """
+        apply force to cartpole, the pybullet simulation is stepped by PYB_FREQ/CTRL_FREQ times
+
+        :param force:
+        :return:
+        """
+        # todo: determinate disturbance
+        for _ in range(self.PYB_STEPS_PER_CTRL):
+            # todo: add disturbance force here, using applyExternalForce in PyBullet
+
+            # apply force to cartpole
+            p.setJointMotorControl2(self.CARTPOLE_ID,
+                                    jointIndex=0,  # slider-to-cart joint
+                                    controlMode=p.TORQUE_CONTROL,
+                                    force=force,
+                                    physicsClientId=self.PYB_CLIENT)
+            p.stepSimulation(physicsClientId=self.PYB_CLIENT)
+
     @property
     def get_id(self):
         return self.id
@@ -405,7 +494,7 @@ class CartPole(BaseEnv):
         # todo: it is different from safe-control-gym, check whether correct?
         ddq1 = (ml * cs.sin(q2) * dq2 ** 2 + U + m * g * cs.cos(q2) * cs.sin(q2)) / (M + m * (1 - cs.cos(q2) ** 2))
         ddq2 = -(ml * cs.cos(q2) * cs.sin(q2) * dq2 ** 2 + U * cs.cos(q2) + Mm * g * cs.sin(q2)) / (
-                    l * M + ml * (1 - cs.cos(q2) ** 2))
+                l * M + ml * (1 - cs.cos(q2) ** 2))
         ddq = cs.vertcat(ddq1, ddq2)
         X_dot = cs.vertcat(dq, ddq)
         # observation
@@ -431,11 +520,45 @@ class CartPole(BaseEnv):
         }
         self.symbolic = FirstOrderModel(dynamics=first_dynamics, cost=cost, params=params)
 
+    def _preprocess_control(self, action):
+        action = self._denormalize_action(action)
+
+        self.current_physical_action = action
+
+        # todo: add action disturbances here
+        self.current_noisy_physical_action = action
+
+        # clip action
+        force = np.clip(action, self.physical_action_bounds[0], self.physical_action_bounds[1])  # nonempty
+        self.current_clipped_action = force
+
+        return force[0]
+
+    def _set_action_space(self):
+        self.action_limit = 10
+        self.physical_action_bounds = (-1 * np.atleast_1d(self.action_limit), -1 * np.atleast_1d(self.action_limit))
+        self.action_threshold = 1
+        self.action_space = spaces.Box(low=-self.action_threshold, high=self.action_threshold, shape=(1,))
+
+        # define action/input labels and units
+        self.ACTION_LABELS = ['U']
+        self.ACTION_UNITS = ['N']
+
+    def _denormalize_action(self, action):
+        """ converts a normalized action into a physical action, only need in RL-based action
+        :param action (ndarray):
+        :return: action (ndarray):
+        """
+        return action
+
 
 if __name__ == '__main__':
     print("start")
     cart_pole = CartPole()
     cart_pole.reset()
+    while 1:
+        cart_pole.step(2)
+        time.sleep(0.5)
     print("cart pole dyn func: {}".format(cart_pole.symbolic.fc_func))
     while 1:
         pass
