@@ -25,6 +25,7 @@ from abc import ABC, abstractmethod
 from gym.utils import seeding
 from symbolic_system import FirstOrderModel
 
+
 # from safe_control_gym.math_and_models.symbolic_systems import SymbolicModel
 # from safe_control_gym.math_and_models.normalization import normalize_angle
 
@@ -62,8 +63,9 @@ class BaseEnv(gym.Env, abc.ABC):
         self.__class__._count += 1
         self.GUI = gui
         self.Task = task
-        self.CTRL_FREQ = ctrl_freq
-        self.PYB_FREQ = pyb_freq
+        self.CTRL_FREQ = ctrl_freq  # control frequency
+        self.PYB_FREQ = pyb_freq  # simulator frequency
+        # simulator frequency should larger than control frequency and should be divisible by ctrl one
         if self.PYB_FREQ % self.CTRL_FREQ != 0:
             raise ValueError('[ERROR] in BaseEnv.__init__(), pyb_freq is not divisible by env_freq.')
         self.PYB_STEPS_PER_CTRL = int(self.PYB_FREQ / self.CTRL_FREQ)
@@ -86,6 +88,7 @@ class BaseEnv(gym.Env, abc.ABC):
         # for _, disturbs in self.disturbances.items():
         #     disturbs.seed(self)
         return [seed]
+
 
 class CartPole(BaseEnv):
     NAME = 'cartpole'
@@ -113,6 +116,7 @@ class CartPole(BaseEnv):
             'high': 0.05
         }
     }
+
     def __init__(self,
                  init_state=None,
                  inertial_prop=None,
@@ -181,8 +185,9 @@ class CartPole(BaseEnv):
             self.POLE_MASS = inertial_prop.get('pole_mass', POLE_MASS)
             self.CART_MASS = inertial_prop.get('cart_mass', CART_MASS)
         else:
-            raise ValueError('[ERROR] in CartPole.__init__(), inertial_prop, type: {}, size: {}'.format(type(inertial_prop),
-                                                                                                        len(inertial_prop)))
+            raise ValueError(
+                '[ERROR] in CartPole.__init__(), inertial_prop, type: {}, size: {}'.format(type(inertial_prop),
+                                                                                           len(inertial_prop)))
 
         # Create X_GOAL and U_GOAL references for the assigned task.
         self.U_GOAL = np.zeros(1)
@@ -208,7 +213,7 @@ class CartPole(BaseEnv):
         self.OVERRIDDEN_CART_MASS = prop_values['cart_mass']
         self.OVERRIDDEN_POLE_MASS = prop_values['pole_mass']
         OVERRIDDEN_POLE_INERTIA = (1 / 12) * self.OVERRIDDEN_POLE_MASS * (
-                    2 * self.OVERRIDDEN_EFFECTIVE_POLE_LENGTH) ** 2
+                2 * self.OVERRIDDEN_EFFECTIVE_POLE_LENGTH) ** 2
         override_urdf_tree = self._create_urdf(self.URDF_PATH, length=self.OVERRIDDEN_EFFECTIVE_POLE_LENGTH,
                                                inertia=OVERRIDDEN_POLE_INERTIA)
         self.override_path = os.path.join(self.output_dir, f'pid-{os.getpid()}_id-{self.idx}_cartpole.urdf')
@@ -299,7 +304,8 @@ class CartPole(BaseEnv):
             CART_MASS (float): The cart mass.
         '''
         URDF_TREE = (etxml.parse(file_name)).getroot()
-        EFFECTIVE_POLE_LENGTH = 0.5 * float(URDF_TREE[3][0][0][0].attrib['size'].split(' ')[-1])  # Note: HALF length of pole.
+        EFFECTIVE_POLE_LENGTH = 0.5 * float(
+            URDF_TREE[3][0][0][0].attrib['size'].split(' ')[-1])  # Note: HALF length of pole.
         POLE_MASS = float(URDF_TREE[3][1][1].attrib['value'])
         CART_MASS = float(URDF_TREE[1][2][0].attrib['value'])
         return EFFECTIVE_POLE_LENGTH, POLE_MASS, CART_MASS
@@ -380,14 +386,14 @@ class CartPole(BaseEnv):
 
     def _setup_symbolic(self, prior_prob={}):
         l = prior_prob.get("pole_length", self.EFFECTIVE_POLE_LENGTH)
-        m = prior_prob.get("pole_mass", self.POLE_MASS) # m2
-        M = prior_prob.get("cart_mass", self.CART_MASS) # m1
+        m = prior_prob.get("pole_mass", self.POLE_MASS)  # m2
+        M = prior_prob.get("cart_mass", self.CART_MASS)  # m1
         Mm, ml = m + M, m * l
         g = self.GRAVITY
         dt = self.CTRL_TIMESTEP
         # Input variable
-        q1 = cs.MX.sym('q1')    # x
-        q2 = cs.MX.sym('q2')    # theta
+        q1 = cs.MX.sym('q1')  # x
+        q2 = cs.MX.sym('q2')  # theta
         dq1 = cs.MX.sym('dq1')  # x_dot
         dq2 = cs.MX.sym('dq2')  # theta_dot
         q = cs.vertcat(q1, q2)
@@ -397,8 +403,9 @@ class CartPole(BaseEnv):
         nx = self.nState
         nu = self.nControl
         # todo: it is different from safe-control-gym, check whether correct?
-        ddq1 = (ml * cs.sin(q2) * dq2**2 + U + m * g * cs.cos(q2) * cs.sin(q2)) / (M + m * (1 - cs.cos(q2)**2))
-        ddq2 = -(ml * cs.cos(q2) * cs.sin(q2) * dq2**2 + U * cs.cos(q2) + Mm * g * cs.sin(q2)) / (l * M + ml * (1 - cs.cos(q2)**2))
+        ddq1 = (ml * cs.sin(q2) * dq2 ** 2 + U + m * g * cs.cos(q2) * cs.sin(q2)) / (M + m * (1 - cs.cos(q2) ** 2))
+        ddq2 = -(ml * cs.cos(q2) * cs.sin(q2) * dq2 ** 2 + U * cs.cos(q2) + Mm * g * cs.sin(q2)) / (
+                    l * M + ml * (1 - cs.cos(q2) ** 2))
         ddq = cs.vertcat(ddq1, ddq2)
         X_dot = cs.vertcat(dq, ddq)
         # observation
