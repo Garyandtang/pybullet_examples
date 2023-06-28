@@ -25,7 +25,7 @@ from gymnasium import spaces
 from abc import ABC, abstractmethod
 from gym.utils import seeding
 from symbolic_system import FirstOrderModel
-
+from utils import utils
 
 # from safe_control_gym.math_and_models.symbolic_systems import SymbolicModel
 # from safe_control_gym.math_and_models.normalization import normalize_angle
@@ -368,6 +368,7 @@ class CartPole(BaseEnv):
         x_dot = p.getJointState(self.CARTPOLE_ID, jointIndex=0, physicsClientId=self.PYB_CLIENT)[1]
         theta = p.getJointState(self.CARTPOLE_ID, jointIndex=1, physicsClientId=self.PYB_CLIENT)[0]
         theta_dot = p.getJointState(self.CARTPOLE_ID, jointIndex=1, physicsClientId=self.PYB_CLIENT)[1]
+        theta = utils.normalize_angle(theta)
         state = np.hstack((x, theta, x_dot, theta_dot))
 
         self.state = np.array(state)
@@ -518,7 +519,8 @@ class CartPole(BaseEnv):
             'X_EQ': np.zeros(self.nState),
             'U_EQ': np.zeros(self.nControl)  # np.atleast_2d(self.U_GOAL)[0, :],
         }
-        self.symbolic = FirstOrderModel(dynamics=first_dynamics, cost=cost, params=params)
+        self.symbolic = FirstOrderModel(dynamics=first_dynamics, dt=self.CTRL_TIMESTEP,
+                                        cost=cost, params=params)
 
     def _preprocess_control(self, action):
         action = self._denormalize_action(action)
@@ -554,11 +556,12 @@ class CartPole(BaseEnv):
 
 if __name__ == '__main__':
     print("start")
-    cart_pole = CartPole()
+    cart_pole = CartPole(init_state=np.array([0, np.pi, 0, 0]))
     cart_pole.reset()
     while 1:
         cart_pole.step(2)
-        time.sleep(0.5)
+        print(cart_pole.get_state())
+        time.sleep(0.1)
     print("cart pole dyn func: {}".format(cart_pole.symbolic.fc_func))
     while 1:
         pass
