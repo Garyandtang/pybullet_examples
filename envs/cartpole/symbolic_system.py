@@ -55,4 +55,9 @@ class FirstOrderModel:
         self.h_func = cs.Function('h_func', [self.x_sym, self.u_sym], [self.y_sym], ['x', 'u'], ['y'])
 
     def setup_linearization(self):
-        pass
+        # jacobian w.r.t state
+        self.dfdx = cs.jacobian(self.x_dot, self.x_sym)
+        self.dfdu = cs.jacobian(self.x_dot, self.u_sym)
+        self.df_func = cs.Function('df', [self.x_sym, self.u_sym],
+                                   [self.dfdx, self.dfdu], ['x', 'u'], ['dfdx', 'dfdu'])
+

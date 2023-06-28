@@ -13,7 +13,6 @@ import os
 import copy
 import math
 import time
-from enum import Enum
 import xml.etree.ElementTree as etxml
 from copy import deepcopy
 import gymnasium as gym
@@ -26,6 +25,9 @@ from abc import ABC, abstractmethod
 from gym.utils import seeding
 from symbolic_system import FirstOrderModel
 from utils import utils
+
+from controllers.lqr.lqr import LQR
+from utils.enum_class import Task
 
 # from safe_control_gym.math_and_models.symbolic_systems import SymbolicModel
 # from safe_control_gym.math_and_models.normalization import normalize_angle
@@ -40,19 +42,13 @@ def init_client():
     return client_inited
 
 
-class Task(str, Enum):
-    '''Environment tasks enumeration class.'''
-
-    STABILIZATION = 'stabilization'  # Stabilization task.
-    TRAJ_TRACKING = 'traj_tracking'  # Trajectory tracking task.
-
 
 class BaseEnv(gym.Env, abc.ABC):
     _count = 0
     NAME = 'base'
 
     def __init__(self,
-                 gui: bool = True,
+                 gui: bool = False,
                  seed=None,
                  task: Task = Task.STABILIZATION,
                  randomized_init: bool = True,
@@ -200,7 +196,7 @@ class CartPole(BaseEnv):
         self.rew_exponential = rew_exponential
         self.done_on_out_of_bound = done_on_out_of_bound
         # todo: super class!!
-        super().__init__()
+        super().__init__(**kwargs)
 
         # create a PyBullet client connection
         self.PYB_CLIENT = -1
@@ -553,13 +549,22 @@ class CartPole(BaseEnv):
         """
         return action
 
+from functools import partial
 
 if __name__ == '__main__':
+    key_word = {'gui': False}
+    env_func = partial(CartPole, **key_word)
+    q_lqr = [1]
+    r_lqr = [0.1]
+    lqr_controller = LQR(env_func=env_func, q_lqr=q_lqr, r_lqr=r_lqr, discrete_dynamics=True)
     print("start")
-    cart_pole = CartPole(init_state=np.array([0, np.pi, 0, 0]))
+    cart_pole = CartPole(gui=True)
     cart_pole.reset()
     while 1:
-        cart_pole.step(2)
+        current_state = cart_pole.get_state()
+        action = lqr_controller.select_action(current_state)
+        print("action: {}".format(action))
+        cart_pole.step(action)
         print(cart_pole.get_state())
         time.sleep(0.1)
     print("cart pole dyn func: {}".format(cart_pole.symbolic.fc_func))
