@@ -50,7 +50,7 @@ class BaseEnv(gym.Env, ABC):
         self.current_noisy_physical_action = None  # current_physical_action with noise added
         self.current_clipped_action = None  # current_noisy_physical_action clipped to physical action bounds
 
-        self._set_action_space()
+        # self._set_action_space()
 
     def before_reset(self, seed=None):
         self.inited = True
