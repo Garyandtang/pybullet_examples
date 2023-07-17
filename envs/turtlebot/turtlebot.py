@@ -26,7 +26,7 @@ from functools import partial
 
 class Turtlebot(BaseEnv):
     NAME = 'turtlebot'
-    URDF_PATH = 'assets/turtlebot.urdf'
+    URDF_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'assets', 'turtlebot.urdf')
 
     def __init__(self,
                  init_state: np.ndarray = None,
@@ -61,6 +61,8 @@ class Turtlebot(BaseEnv):
                                                                                                          len(init_state)))
         self.U_GOAL = np.zeros(self.nControl)
         self.X_GOAL = np.zeros(self.nState)
+
+        self.reset()
 
     def reset(self, seed=None):
         super().before_reset(seed=seed)
@@ -161,4 +163,5 @@ if __name__ == '__main__':
         state = turtle_env.step([1, 1])
         print(p.getJointState(1, 1)[1])
         print(state[0])
+        print()
         time.sleep(0.02)

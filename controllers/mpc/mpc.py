@@ -1,5 +1,5 @@
 from controllers.lqr.lqr_utils import *
-
+from envs.turtlebot.turtlebot import Turtlebot
 class MPC():
     def __init__(self,
                  env_func,
@@ -32,3 +32,7 @@ class MPC():
     def compute_init_guess(self):
         raise NotImplementedError
 
+
+if __name__ == '__main__':
+    env_func = Turtlebot()
+    MPC = MPC(env_func=env_func, q_lqr=[1, 1, 1], r_lqr=[1], discrete_dynamics=True)

@@ -44,6 +44,16 @@ class FirstOrderModel:
         # setup Jacobian and Hessian of the dynamics and cost function
         self.setup_linearization()
 
+        # setup cost function
+        # Setup cost function.
+        self.cost = cost['cost_func']
+        # print(self.cost_func)
+        self.Q = cost['vars']['Q']
+        self.R = cost['vars']['R']
+        self.Xr = cost['vars']['Xr']
+        self.Ur = cost['vars']['Ur']
+        self.cost_func = cs.Function('cost_func', [self.x_sym, self.Xr, self.u_sym, self.Ur, self.Q, self.R], [self.cost], ['x', 'xr', 'u', 'ur', 'Q', 'R'], ['cost'])
+
     def setup_model(self):
         # continuous time dynamics
         self.fc_func = cs.Function('fc', [self.x_sym, self.u_sym], [self.x_dot], ['x', 'u'], ['f1'])
