@@ -27,9 +27,12 @@ class problem():
         self.x_start = np.zeros((self.nx, 1))
         self.x_goal = np.zeros((self.nx, 1))
 
+        self.u_upper = np.ones((self.nu, 1)) * 20
+        self.u_lower = np.ones((self.nu, 1)) * -10
+
         # horizon
         self.T = 0.1
-        self.dt = self.env.CTRL_TIMESTEP
+        self.dt = self.env.CTRL_TIMESTEP  # 50Hz
         self.N = int(self.T / self.dt)
 
     def set_predict_horizon(self, T):
@@ -67,6 +70,8 @@ class DirectTransMethod():
         # parse constraints
         self.x_start = problem.x_start
         self.x_goal = problem.x_goal
+        self.u_upper = problem.u_upper
+        self.u_lower = problem.u_lower
         # parse horizon
         self.N = problem.N
         self.dt = problem.dt
@@ -81,6 +86,13 @@ class DirectTransMethod():
         w = u_var[1, :]
 
         opti.subject_to(x_var[:, 0] == self.x_start)
+
+        # control bound constraints
+        for i in range(T):
+            opti.subject_to(self.u_lower <= u_var[:, i])
+            opti.subject_to(u_var[:, i] <= self.u_upper)
+
+
         # system model constraints
         for i in range(T):
             # euler method
@@ -138,13 +150,15 @@ if __name__ == '__main__':
     waypoints = np.array([[0, 0, 0], [1, 1, np.pi/2], [2, -1, -np.pi/2], [3, 1, np.pi/2]])
 
     waypoints = np.array([[0, 0, 0], [1, 1, np.pi / 2], [0, 2, np.pi], [-1, 1, -np.pi / 2]])
+
+    waypoints = np.array([[1, 1, np.pi ]])
     # set env
     env = Turtlebot(gui=True)
     # set solver
     key_word = {'gui': False}
     env_func = partial(Turtlebot, **key_word)
     problem = problem(env_func)
-    q_lqr = [10, 10, 0]
+    q_lqr = [10, 10, 4]
     r_lqr = [0.1]
     problem.set_cost_weights(q_lqr, r_lqr)
     index = 0
@@ -155,8 +169,9 @@ if __name__ == '__main__':
     while 1:
         start = time.time()
         curr_state = env.get_state()
-        if np.linalg.norm(curr_state[0:1] - goal_state[0:1]) < 0.04:
-            index += 1
+        print('curr_state: ', curr_state)
+        if np.linalg.norm(curr_state[0:2] - goal_state[0:2]) < 0.1:
+            index += 0
             goal_state = waypoints[index % 4, :]
             problem.set_goal_state(goal_state)
 
@@ -164,9 +179,6 @@ if __name__ == '__main__':
         solver = DirectTransMethod(problem)
         action = solver.solve()
         print('action: ', action)
-
-
-
         end = time.time()
         print('time: ', end - start)
         env.step(action)

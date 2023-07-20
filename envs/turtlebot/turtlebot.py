@@ -7,6 +7,7 @@ import copy
 
 import time
 import xml.etree.ElementTree as etxml
+from liecasadi import SO3, SO3Tangent
 
 
 import casadi as cs
@@ -90,7 +91,7 @@ class Turtlebot(BaseEnv):
     def get_state(self):
         # [x, y, theta]
         pos, quat = p.getBasePositionAndOrientation(self.turtlebot, physicsClientId=self.PYB_CLIENT)
-        euler = p.getEulerFromQuaternion(quat)
+        euler = p.getEulerFromQuaternion(quat) # [-pi, pi]
         self.state = np.array([pos[0], pos[1], euler[2]])
         return self.state
 
@@ -142,10 +143,22 @@ class Turtlebot(BaseEnv):
         R = cs.MX.sym('R', nu, nu)
         Xr = cs.MX.sym('Xr', nx, 1)
         Ur = cs.MX.sym('Ur', nu, 1)
-        cost_func = 0.5 * (X - Xr).T @ Q @ (X - Xr) + 0.5 * (U - Ur).T @ R @ (U - Ur)
+        if 0:
+            cost_func = 0.5 * (X - Xr).T @ Q @ (X - Xr) + 0.5 * (U - Ur).T @ R @ (U - Ur)
+            cost = {'cost_func': cost_func, 'vars': {'X': X, 'Xr': Xr, 'U': U, 'Ur': Ur, 'Q': Q, 'R': R}}
+        else:
+            pos_cost = 0.5 * (X[:2] - Xr[:2]).T @ Q[:2, :2] @ (X[:2] - Xr[:2])
+            theta = X[2]
+            theta_target = Xr[2]
+            so3 = SO3.from_euler(cs.vertcat(0, 0, theta))
+            so3_target = SO3.from_euler(cs.vertcat(0, 0, theta_target))
+            quat_diff = 1 - cs.power(cs.mtimes(cs.transpose(so3.as_quat().coeffs()), so3_target.as_quat().coeffs()), 2)
+            ori_cost = 0.5 * quat_diff.T @ Q[2:, 2:] @ quat_diff
+            cost_func = pos_cost + ori_cost + 0.5 * (U - Ur).T @ R @ (U - Ur)
+            cost = {'cost_func': cost_func, 'vars': {'X': X, 'Xr': Xr, 'U': U, 'Ur': Ur, 'Q': Q, 'R': R}}
         # define dyn and cost dictionaries
         first_dynamics = {'dyn_eqn': X_dot, 'obs_eqn': Y, 'vars': {'X': X, 'U': U}}
-        cost = {'cost_func': cost_func, 'vars': {'X': X, 'Xr': Xr, 'U': U, 'Ur': Ur, 'Q': Q, 'R': R}}
+
         params = {
             'X_EQ': np.array([0, 0, 0, 0]),
             'U_EQ': np.zeros(self.nControl)  # np.atleast_2d(self.U_GOAL)[0, :],
