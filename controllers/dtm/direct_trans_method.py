@@ -5,11 +5,14 @@ from envs.turtlebot.turtlebot import Turtlebot
 from functools import partial
 import numpy as np
 import casadi as ca
-
+from utils.enum_class import CostType, DynamicsType
 
 
 class problem():
     def __init__(self, env_func):
+        config = {'cost_type': CostType.POSITION_EULER, 'dynamics_type': DynamicsType.NORMAL_FIRST_ORDER}
+        key_word = {'gui': False, 'config': config}
+        env_func = partial(Turtlebot, **key_word)
         # dynamics
         self.env = env_func()
         self.model = self.env.symbolic
@@ -28,7 +31,7 @@ class problem():
         self.x_goal = np.zeros((self.nx, 1))
 
         self.u_upper = np.ones((self.nu, 1)) * 20
-        self.u_lower = np.ones((self.nu, 1)) * -10
+        self.u_lower = np.ones((self.nu, 1)) * -20
 
         # horizon
         self.T = 0.1
@@ -117,8 +120,8 @@ class DirectTransMethod():
         # system model constraints
         for i in range(T):
             # euler method
-            # x_next = x_var[:, i] + self.dt * self.model.fc_func(x_var[:, i], u_var[:, i])
-            x_next = self.fd_func(x_var[:, i], u_var[:, i])
+            x_next = x_var[:, i] + self.dt * self.model.fc_func(x_var[:, i], u_var[:, i])
+            # x_next = self.fd_func(x_var[:, i], u_var[:, i])
             opti.subject_to(x_var[:, i + 1] == x_next)
 
         # goal constraint
@@ -173,14 +176,14 @@ if __name__ == '__main__':
 
     waypoints = np.array([[0, 0, 0], [1, 1, np.pi / 2], [0, 2, np.pi], [-1, 1, -np.pi / 2]])
 
-    waypoints = np.array([[1, 1, np.pi ]])
+    waypoints = np.array([[1, 1, np.pi]])
     # set env
     env = Turtlebot(gui=True)
     # set solver
     key_word = {'gui': False}
     env_func = partial(Turtlebot, **key_word)
     problem = problem(env_func)
-    q_lqr = [10, 10, 4]
+    q_lqr = [10, 10, 2]
     r_lqr = [0.1]
     problem.set_cost_weights(q_lqr, r_lqr)
     index = 0
