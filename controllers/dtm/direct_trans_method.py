@@ -35,6 +35,8 @@ class problem():
         self.dt = self.env.CTRL_TIMESTEP  # 50Hz
         self.N = int(self.T / self.dt)
 
+        self.set_discrete_dynamics()
+
     def set_predict_horizon(self, T):
         self.T = T
         self.N = int(self.T / self.dt)
@@ -53,6 +55,24 @@ class problem():
     def set_boundary(self, x_start, x_goal):
         self.x_start = x_start
         self.x_goal = x_goal
+
+    def set_discrete_dynamics(self):
+        l = 0.025
+        x, y, theta = ca.MX.sym('x'), ca.MX.sym('y'), ca.MX.sym('theta')
+        v_l, v_r = ca.MX.sym('v_l'), ca.MX.sym('v_r')
+        v = (v_l + v_r) / 2
+        w = (v_r - v_l) / l
+        x_next = x + v * ca.cos(theta) * self.dt
+        y_next = y + v * ca.sin(theta) * self.dt
+        theta_next = theta + w * self.dt
+        X_next_1 = ca.vertcat(x_next, y_next, theta_next)
+        X = ca.vertcat(x, y, theta)
+        x_next = x + v*(ca.sin(theta + w * self.dt) - ca.sin(theta))/w
+        y_next = y - v*(ca.cos(theta + w * self.dt) - ca.cos(theta))/w
+        theta_next = theta + w * self.dt
+        X_next_2 = ca.vertcat(x_next, y_next, theta_next)
+        X_next = ca.if_else(ca.fabs(w) <= 1e-3, X_next_1, X_next_2)
+        self.fd_func = ca.Function('fd_func', [X, ca.vertcat(v_l, v_r)], [X_next])
 
 
 class DirectTransMethod():
@@ -75,6 +95,7 @@ class DirectTransMethod():
         # parse horizon
         self.N = problem.N
         self.dt = problem.dt
+        self.fd_func = problem.fd_func
 
     def solve(self):
         nx, nu = self.model.nx, self.model.nu
@@ -96,7 +117,8 @@ class DirectTransMethod():
         # system model constraints
         for i in range(T):
             # euler method
-            x_next = x_var[:, i] + self.dt * self.model.fc_func(x_var[:, i], u_var[:, i])
+            # x_next = x_var[:, i] + self.dt * self.model.fc_func(x_var[:, i], u_var[:, i])
+            x_next = self.fd_func(x_var[:, i], u_var[:, i])
             opti.subject_to(x_var[:, i + 1] == x_next)
 
         # goal constraint

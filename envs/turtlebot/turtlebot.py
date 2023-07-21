@@ -129,11 +129,16 @@ class Turtlebot(BaseEnv):
         w = self.width
         x, y, theta = cs.MX.sym('x'), cs.MX.sym('y'), cs.MX.sym('theta')
         v_l, v_r = cs.MX.sym('v_l'), cs.MX.sym('v_r')
-        x_dot = cs.cos(theta) * (v_l + v_r) / 2
-        y_dot = cs.sin(theta) * (v_l + v_r) / 2
-        theta_dot = (v_r - v_l) / l
+        v = (v_l + v_r) / 2
+        w = (v_r - v_l) / l
+        x_dot = cs.cos(theta) * v
+        y_dot = cs.sin(theta) * v
+        theta_dot = w
         X = cs.vertcat(x, y, theta)
         X_dot = cs.vertcat(x_dot, y_dot, theta_dot)
+
+
+
         U = cs.vertcat(v_l, v_r)
         Y = X
         nx = 3
