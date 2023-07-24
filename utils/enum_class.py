@@ -14,8 +14,8 @@ class CostType(str, Enum):
 
 
 class DynamicsType(str, Enum):
-    NORMAL_FIRST_ORDER = 'normal_first_order'  # Normal first order dynamics.
-    NORMAL_SECOND_ORDER = 'normal_second_order'  # Normal second order dynamics.
+    EULER_FIRST_ORDER = 'euler_first_order'  # first order dynamics with orientation in euler.
+    EULER_SECOND_ORDER = 'euler_second_order'  # second order dynamics with orientation in euler.
     DIFF_FLAT = 'diff_flat'  # Differential flatness dynamics.
 
 

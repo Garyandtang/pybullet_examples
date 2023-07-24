@@ -195,7 +195,7 @@ if __name__ == '__main__':
         start = time.time()
         curr_state = env.get_state()
         print('curr_state: ', curr_state)
-        if np.linalg.norm(curr_state[0:2] - goal_state[0:2]) < 0.1:
+        if np.linalg.norm(curr_state[0:2] - goal_state[0:2]) < 0.01:
             index += 0
             goal_state = waypoints[index % 4, :]
             problem.set_goal_state(goal_state)

@@ -1,4 +1,4 @@
-"""Turtlebot environment using PyBullet physics.
+"""Turtlebot environment using PyBullet physica.
 
 
 """
@@ -6,7 +6,7 @@ import os
 
 import time
 from liecasadi import SO3, SO3Tangent
-import casadi as cs
+import casadi as ca
 import numpy as np
 import pybullet as p
 import pybullet_data
@@ -132,21 +132,21 @@ class Turtlebot(BaseEnv):
         # define symbolic variables
         l = self.length
         if self.dynamicType == DynamicsType.NORMAL_FIRST_ORDER:
-            x = cs.MX.sym('x')
-            y = cs.MX.sym('y')
-            theta = cs.MX.sym('theta')
-            X = cs.vertcat(x, y, theta)
+            x = ca.MX.sym('x')
+            y = ca.MX.sym('y')
+            theta = ca.MX.sym('theta')
+            X = ca.vertcat(x, y, theta)
             # control
-            v_l = cs.MX.sym('v_l')  # left wheel velocity
-            v_r = cs.MX.sym('v_r')  # right wheel velocity
+            v_l = ca.MX.sym('v_l')  # left wheel velocity
+            v_r = ca.MX.sym('v_r')  # right wheel velocity
             v = (v_l + v_r) / 2  # linear velocity
             w = (v_r - v_l) / l  # angular velocity
-            U = cs.vertcat(v_l, v_r)
+            U = ca.vertcat(v_l, v_r)
             # state derivative
-            x_dot = cs.cos(theta) * v
-            y_dot = cs.sin(theta) * v
+            x_dot = ca.cos(theta) * v
+            y_dot = ca.sin(theta) * v
             theta_dot = w
-            X_dot = cs.vertcat(x_dot, y_dot, theta_dot)
+            X_dot = ca.vertcat(x_dot, y_dot, theta_dot)
             cost = self.set_cost(X, U)
         elif self.dynamicType == DynamicsType.NORMAL_SECOND_ORDER:
             raise ValueError('[ERROR] in turtlebot._setup_symbolic(), dynamics_type: {}'.format(self.dynamicType))
@@ -169,26 +169,26 @@ class Turtlebot(BaseEnv):
         nx = self.nState
         nu = self.nControl
         # cost function
-        Q = cs.MX.sym('Q', nx, nx)
-        R = cs.MX.sym('R', nu, nu)
-        Xr = cs.MX.sym('Xr', nx, 1)
-        Ur = cs.MX.sym('Ur', nu, 1)
+        Q = ca.MX.sym('Q', nx, nx)
+        R = ca.MX.sym('R', nu, nu)
+        Xr = ca.MX.sym('Xr', nx, 1)
+        Ur = ca.MX.sym('Ur', nu, 1)
         if self.costType == CostType.POSITION:
             cost_func = 0.5 * (X[:2] - Xr[:2]).T @ Q[:2, :2] @ (X[:2] - Xr[:2]) + 0.5 * (U - Ur).T @ R @ (U - Ur)
         elif self.costType == CostType.POSITION_QUATERNION:
             pos_cost = 0.5 * (X[:2] - Xr[:2]).T @ Q[:2, :2] @ (X[:2] - Xr[:2])
             theta = X[2]
             theta_target = Xr[2]
-            so3 = SO3.from_euler(cs.vertcat(0, 0, theta))
-            so3_target = SO3.from_euler(cs.vertcat(0, 0, theta_target))
-            quat_diff = 1 - cs.power(cs.dot(so3.quat, so3_target.quat), 2)
+            so3 = SO3.from_euler(ca.vertcat(0, 0, theta))
+            so3_target = SO3.from_euler(ca.vertcat(0, 0, theta_target))
+            quat_diff = 1 - ca.power(ca.dot(so3.quat, so3_target.quat), 2)
             quat_cost = 0.5 * quat_diff.T @ Q[2:, 2:] @ quat_diff
             cost_func = pos_cost + quat_cost + 0.5 * (U - Ur).T @ R @ (U - Ur)
         elif self.costType == CostType.POSITION_EULER:
             pos_cost = 0.5 * (X[:2] - Xr[:2]).T @ Q[:2, :2] @ (X[:2] - Xr[:2])
             theta = X[2]
             theta_target = Xr[2]
-            euler_diff = 1 - cs.cos(theta - theta_target)
+            euler_diff = 1 - ca.cos(theta - theta_target)
             euler_cost = 0.5 * euler_diff.T @ Q[2:, 2:] @ euler_diff
             cost_func = pos_cost + euler_cost + 0.5 * (U - Ur).T @ R @ (U - Ur)
         else:
