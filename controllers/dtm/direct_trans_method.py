@@ -2,6 +2,7 @@ import time
 
 from controllers.lqr.lqr_utils import *
 from envs.turtlebot.turtlebot import Turtlebot
+from envs.turtlebot.turtlebot_model import TurtlebotModel
 from functools import partial
 import numpy as np
 import casadi as ca
@@ -10,12 +11,12 @@ from utils.enum_class import CostType, DynamicsType
 
 class problem():
     def __init__(self, env_func):
-        config = {'cost_type': CostType.POSITION_EULER, 'dynamics_type': DynamicsType.NORMAL_FIRST_ORDER}
+        config = {'cost_type': CostType.POSITION_EULER, 'dynamics_type': DynamicsType.EULER_FIRST_ORDER}
         key_word = {'gui': False, 'config': config}
         env_func = partial(Turtlebot, **key_word)
         # dynamics
         self.env = env_func()
-        self.model = self.env.symbolic
+        self.model = TurtlebotModel(config=config).symbolic
         self.nx = self.model.nx
         self.nu = self.model.nu
 

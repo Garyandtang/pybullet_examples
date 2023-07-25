@@ -5,18 +5,24 @@ Symoblic model of the turtlebot
 import numpy as np
 import casadi as ca
 from utils.enum_class import CostType, DynamicsType
+from utils.symbolic_system import FirstOrderModel
 from liecasadi import SO3
+
+
 class TurtlebotModel:
-    def __init__(self, config: dict = {}, **kwargs):
+    def __init__(self, config: dict = {}, pyb_freq: int = 50, **kwargs):
         self.nState = 3
         self.nControl = 2
         self.length = 0.23  # length of the turtlebot
         self.width = 0.025  # width of the wheel of the turtlebot
 
+        self.control_freq = pyb_freq
+        self.dt = 1. / self.control_freq
+
+        # setup configuration
         self.config = config
         if not config:
             self.config = {'cost_type': CostType.POSITION_EULER, 'dynamics_type': DynamicsType.EULER_FIRST_ORDER}
-
         if self.config['dynamics_type'] == DynamicsType.EULER_FIRST_ORDER:
             self.set_up_euler_first_order_dynamics()
         elif self.config['dynamics_type'] == DynamicsType.EULER_FIRST_ORDER:
@@ -26,6 +32,7 @@ class TurtlebotModel:
         print(config.get("dynamics_type"))
 
     def set_up_euler_first_order_dynamics(self):
+        print("Setting up Euler first order dynamics")
         nx = self.nState
         nu = self.nControl
         l = self.length
@@ -46,9 +53,11 @@ class TurtlebotModel:
         y_dot = ca.sin(theta) * v
         theta_dot = w
         X_dot = ca.vertcat(x_dot, y_dot, theta_dot)
-        cost = self.set_cost(X, U)
+        # cost = self.set_cost(X, U)
 
         # cost function
+        self.costType = self.config['cost_type']
+        print("Cost type: {}".format(self.costType))
         Q = ca.MX.sym('Q', nx, nx)
         R = ca.MX.sym('R', nu, nu)
         Xr = ca.MX.sym('Xr', nx, 1)
@@ -77,13 +86,14 @@ class TurtlebotModel:
 
         # define dynamics and cost dict
         dynamics = {'dyn_eqn': X_dot, 'vars': {'X': X, 'U': U}}
-
-
-
-
+        params = {
+            'X_EQ': np.zeros(self.nState),  # np.atleast_2d(self.X_GOAL)[0, :],
+            'U_EQ': np.zeros(self.nControl)  # np.atleast_2d(self.U_GOAL)[0, :],
+        }
+        self.symbolic = FirstOrderModel(dynamics, cost, self.dt, params)
 
 
 if __name__ == '__main__':
-    config = {'dynamics_type': 'normal_first_order',
-              'cost_type': 'position'}
+    config = {'dynamics_type': DynamicsType.EULER_FIRST_ORDER,
+              'cost_type': CostType.POSITION}
     turtlebot_model = TurtlebotModel(config=config)

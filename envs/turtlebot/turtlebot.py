@@ -77,7 +77,7 @@ class Turtlebot(BaseEnv):
         self.length = 0.23 # length of the turtlebot
         self.width = 0.025 # width of the wheel of the turtlebot
 
-        self._setup_symbolic()
+        # self._setup_symbolic()
 
         return self.get_state()
 
