@@ -17,7 +17,7 @@ from envs.base_env import BaseEnv
 from functools import partial
 from utils.enum_class import CostType, DynamicsType
 
-class Turtlebot(BaseEnv):
+class Turtlebot():
     NAME = 'turtlebot'
     URDF_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'assets', 'turtlebot.urdf')
 
@@ -25,7 +25,14 @@ class Turtlebot(BaseEnv):
                  init_state: np.ndarray = None,
                  gui: bool = False,
                  **kwargs):
-        super().__init__(gui=gui, **kwargs)
+        # super().__init__(gui=gui, **kwargs)
+        # configuration setup
+        self.GUI = gui
+        self.CTRL_FREQ = 50  # control frequency
+        self.PYB_FREQ = 50  # simulator fr
+        self.PYB_STEPS_PER_CTRL = int(self.PYB_FREQ / self.CTRL_FREQ)
+        self.CTRL_TIMESTEP = 1. / self.CTRL_FREQ
+        self.PYB_TIMESTEP = 1. / self.PYB_FREQ
 
         # create a PyBullet physics simulation
         self.PYB_CLIENT = -1
@@ -45,6 +52,9 @@ class Turtlebot(BaseEnv):
         # set the init state
         self.nState = 3
         self.nControl = 2
+        # turtlebot model parameters
+        self.length = 0.23  # length of the turtlebot
+        self.width = 0.025  # width of the wheel of the turtlebot
         if init_state is None:
             self.init_state = np.array([0, 0, 0])
         elif isinstance(init_state, np.ndarray):
@@ -52,14 +62,9 @@ class Turtlebot(BaseEnv):
         else:
             raise ValueError('[ERROR] in turtlebot.__init__(), init_state, type: {}, size: {}'.format(type(init_state),
                                                                                                          len(init_state)))
-        # config
-        config = kwargs.get('config', {})
-        self.costType = config.get('cost_type', 'position')
-        self.dynamicType = config.get('dynamics_type', 'normal_first_order')
         self.reset()
 
     def reset(self, seed=None):
-        super().before_reset(seed=seed)
         # reset the simulation
         p.resetSimulation(physicsClientId=self.PYB_CLIENT)
         p.setGravity(0, 0, -9.81, physicsClientId=self.PYB_CLIENT)
@@ -72,12 +77,6 @@ class Turtlebot(BaseEnv):
         self.turtlebot = p.loadURDF(self.URDF_PATH, self.init_state, physicsClientId=self.PYB_CLIENT)
         p.resetJointState(self.turtlebot, 0, 0, 0, physicsClientId=self.PYB_CLIENT)
         p.resetJointState(self.turtlebot, 1, 0, 0, physicsClientId=self.PYB_CLIENT)
-
-        # turtlebot model parameters
-        self.length = 0.23 # length of the turtlebot
-        self.width = 0.025 # width of the wheel of the turtlebot
-
-        # self._setup_symbolic()
 
         return self.get_state()
 
@@ -127,74 +126,6 @@ class Turtlebot(BaseEnv):
 
     def _set_action_space(self, state):
         raise NotImplementedError
-
-    def _setup_symbolic(self):
-        # define symbolic variables
-        l = self.length
-        if self.dynamicType == DynamicsType.NORMAL_FIRST_ORDER:
-            x = ca.MX.sym('x')
-            y = ca.MX.sym('y')
-            theta = ca.MX.sym('theta')
-            X = ca.vertcat(x, y, theta)
-            # control
-            v_l = ca.MX.sym('v_l')  # left wheel velocity
-            v_r = ca.MX.sym('v_r')  # right wheel velocity
-            v = (v_l + v_r) / 2  # linear velocity
-            w = (v_r - v_l) / l  # angular velocity
-            U = ca.vertcat(v_l, v_r)
-            # state derivative
-            x_dot = ca.cos(theta) * v
-            y_dot = ca.sin(theta) * v
-            theta_dot = w
-            X_dot = ca.vertcat(x_dot, y_dot, theta_dot)
-            cost = self.set_cost(X, U)
-        elif self.dynamicType == DynamicsType.NORMAL_SECOND_ORDER:
-            raise ValueError('[ERROR] in turtlebot._setup_symbolic(), dynamics_type: {}'.format(self.dynamicType))
-        elif self.dynamicType == DynamicsType.DIFF_FLAT:
-            raise NotImplementedError
-        else:
-            raise ValueError('[ERROR] in turtlebot._setup_symbolic(), dynamics_type: {}'.format(self.dynamicType))
-
-        Y = X
-        # define dyn and cost dictionaries
-        first_dynamics = {'dyn_eqn': X_dot, 'obs_eqn': Y, 'vars': {'X': X, 'U': U}}
-
-        params = {
-            'X_EQ': np.zeros(self.nState),  # np.atleast_2d(self.X_GOAL)[0, :],
-            'U_EQ': np.zeros(self.nControl)  # np.atleast_2d(self.U_GOAL)[0, :],
-        }
-        self.symbolic = FirstOrderModel(first_dynamics, cost, self.CTRL_TIMESTEP, params)
-
-    def set_cost(self, X, U):
-        nx = self.nState
-        nu = self.nControl
-        # cost function
-        Q = ca.MX.sym('Q', nx, nx)
-        R = ca.MX.sym('R', nu, nu)
-        Xr = ca.MX.sym('Xr', nx, 1)
-        Ur = ca.MX.sym('Ur', nu, 1)
-        if self.costType == CostType.POSITION:
-            cost_func = 0.5 * (X[:2] - Xr[:2]).T @ Q[:2, :2] @ (X[:2] - Xr[:2]) + 0.5 * (U - Ur).T @ R @ (U - Ur)
-        elif self.costType == CostType.POSITION_QUATERNION:
-            pos_cost = 0.5 * (X[:2] - Xr[:2]).T @ Q[:2, :2] @ (X[:2] - Xr[:2])
-            theta = X[2]
-            theta_target = Xr[2]
-            so3 = SO3.from_euler(ca.vertcat(0, 0, theta))
-            so3_target = SO3.from_euler(ca.vertcat(0, 0, theta_target))
-            quat_diff = 1 - ca.power(ca.dot(so3.quat, so3_target.quat), 2)
-            quat_cost = 0.5 * quat_diff.T @ Q[2:, 2:] @ quat_diff
-            cost_func = pos_cost + quat_cost + 0.5 * (U - Ur).T @ R @ (U - Ur)
-        elif self.costType == CostType.POSITION_EULER:
-            pos_cost = 0.5 * (X[:2] - Xr[:2]).T @ Q[:2, :2] @ (X[:2] - Xr[:2])
-            theta = X[2]
-            theta_target = Xr[2]
-            euler_diff = 1 - ca.cos(theta - theta_target)
-            euler_cost = 0.5 * euler_diff.T @ Q[2:, 2:] @ euler_diff
-            cost_func = pos_cost + euler_cost + 0.5 * (U - Ur).T @ R @ (U - Ur)
-        else:
-            raise ValueError('[ERROR] in turtlebot._setup_symbolic(), cost_type: {}'.format(self.costType))
-        cost = {'cost_func': cost_func, 'vars': {'X': X, 'Xr': Xr, 'U': U, 'Ur': Ur, 'Q': Q, 'R': R}}
-        return cost
 
 
 if __name__ == '__main__':
