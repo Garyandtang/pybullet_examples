@@ -80,6 +80,8 @@ class TurtlebotModel:
             euler_diff = 1 - ca.cos(theta - theta_target)
             euler_cost = 0.5 * euler_diff.T @ Q[2:, 2:] @ euler_diff
             cost_func = pos_cost + euler_cost + 0.5 * (U - Ur).T @ R @ (U - Ur)
+        elif self.costType == CostType.NAIVE:
+            cost_func = 0.5 * (X - Xr).T @ Q @ (X - Xr) + 0.5 * (U - Ur).T @ R @ (U - Ur)
         else:
             raise ValueError('[ERROR] in turtlebot._setup_symbolic(), cost_type: {}'.format(self.costType))
         cost = {'cost_func': cost_func, 'vars': {'X': X, 'Xr': Xr, 'U': U, 'Ur': Ur, 'Q': Q, 'R': R}}

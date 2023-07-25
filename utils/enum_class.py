@@ -8,6 +8,7 @@ class Task(str, Enum):
     TRAJ_TRACKING = 'traj_tracking'  # Trajectory tracking task.
 
 class CostType(str, Enum):
+    NAIVE = 'naive'  # Naive cost.
     POSITION = 'position'  # Position cost.
     POSITION_EULER = 'position_euler'  # Position and Euler angle cost.
     POSITION_QUATERNION = 'position_quaternion'  # Position and quaternion cost.
