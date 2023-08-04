@@ -65,8 +65,9 @@ z_func = ca.Function('z_func', [t, a, b], [z])
 t = np.linspace(0, 1)
 z_val = np.zeros((2, len(t)))
 for i in range(len(t)):
-    z_val[0, i] =  t[i]
-    # z_val[0, i] = 0.8 * t[i] ** 3 + 0.1 * t[i] ** 2 + 0.1 * t[i]
+    z_val[0, i] = t[i]
+    z_val[0, i] = 0.5 * t[i] ** 2 + 0.5 * t[i]
+    z_val[0, i] = 0.8 * t[i] ** 3 + 0.1 * t[i] ** 2 + 0.1 * t[i]
     z_val[1, i] = z_func(t[i], a1_coff, a2_coff)[1]
 
 import matplotlib.pyplot as plt

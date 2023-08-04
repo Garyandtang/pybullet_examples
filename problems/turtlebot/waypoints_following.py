@@ -10,7 +10,7 @@ import casadi as ca
 from utils.enum_class import CostType, DynamicsType
 class turtle_move_to_problem():
     def __init__(self):
-        config = {'cost_type': CostType.NAIVE,
+        config = {'cost_type': CostType.POSITION_QUATERNION,
                   'dynamics_type': DynamicsType.EULER_FIRST_ORDER}
         key_word = {'gui': False, 'config': config}
         # dynamics
