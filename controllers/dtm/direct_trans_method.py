@@ -31,23 +31,23 @@ class DirectTransMethod():
 
     def solve(self):
         nx, nu = self.model.nx, self.model.nu
-        T = self.set_mpc_horizon()
+        N = self.set_mpc_horizon()
         opti = ca.Opti()
-        x_var = opti.variable(nx, T + 1)
-        u_var = opti.variable(nu, T)
+        x_var = opti.variable(nx, N + 1)
+        u_var = opti.variable(nu, N)
         v = u_var[0, :]
         w = u_var[1, :]
 
         opti.subject_to(x_var[:, 0] == self.x_start)
 
         # control bound constraints
-        for i in range(T):
+        for i in range(N):
             opti.subject_to(self.u_lower <= u_var[:, i])
             opti.subject_to(u_var[:, i] <= self.u_upper)
 
 
         # system model constraints
-        for i in range(T):
+        for i in range(N):
             # euler method
             x_next = x_var[:, i] + self.dt * self.model.fc_func(x_var[:, i], u_var[:, i])
             # x_next = self.fd_func(x_var[:, i], u_var[:, i])
@@ -59,7 +59,7 @@ class DirectTransMethod():
         # cost
         cost = 0
         cost_func = self.cost_func
-        for i in range(T):
+        for i in range(N):
             cost += cost_func(x_var[:, i], self.x_goal, u_var[:, i], np.zeros((nu, 1)), self.Q, self.R)
 
         cost += cost_func(x_var[:, -1], self.x_goal, np.zeros((nu, 1)), np.zeros((nu, 1)), 100 * self.Q, self.R)
