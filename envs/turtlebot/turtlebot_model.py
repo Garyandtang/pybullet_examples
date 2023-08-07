@@ -25,7 +25,7 @@ class TurtlebotModel:
             self.config = {'cost_type': CostType.POSITION_EULER, 'dynamics_type': DynamicsType.EULER_FIRST_ORDER}
         if self.config['dynamics_type'] == DynamicsType.EULER_FIRST_ORDER:
             self.set_up_euler_first_order_dynamics()
-        elif self.config['dynamics_type'] == DynamicsType.EULER_FIRST_ORDER:
+        elif self.config['dynamics_type'] == DynamicsType.EULER_SECOND_ORDER:
             pass
         elif self.config['dynamics_type'] == DynamicsType.DIFF_FLAT:
             pass

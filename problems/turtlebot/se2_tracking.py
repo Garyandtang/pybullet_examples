@@ -2,18 +2,18 @@
 se2 tracking problem
 
 error dynamics:
-    x_k+1 = A_k * x_k + B_k * u_k
+    psi_dot = At * psi_t + Bt * ut + ht
 state:
-    x = [psi, 1]
     psi: lie algebra element of Psi (SE2 error)
 control:
-    u = xi: twist (se2 element)
+    ut = xi_t: twist (se2 element)
+
 State transition matrix:
-    A_k = [I+dt*At dt*ht; 0 1]
     At: ad_{xi_d,t}
-    ht: xi_d,t
 Control matrix:
-    B_k = [dt*I; 0]
+    B_k = I
+offset:
+    ht = xi_t,d: desired twist (se2 element)
 
 """
 import numpy as np
@@ -38,14 +38,14 @@ def solver():
     nx, nu = 3, 3
     dt = 0.05
     N = 100
-    Q = 10*np.diag([1, 1, 1])
+    Q = 100*np.diag([1, 1, 1])
     R = np.diag([1, 1, 1])
-    xi_goal = np.array([1, 0, 0])
+    xi_goal = np.array([1, 0, 1])
     A = -SE2Tangent(xi_goal).smallAdj()
     B = np.eye(nu)
     h = -xi_goal
-    # psi_start = np.array([1, 1, 1])
-    psi_start = np.array([0, 0, 0])
+    psi_start = np.array([1, 1, 1])
+    # psi_start = np.array([0, 0, 0])
 
     # define opti solver
     opti = ca.Opti()
@@ -72,6 +72,7 @@ def solver():
     psi_sol = sol.value(psi_var)
     u_sol = sol.value(u_var)
     return psi_sol, u_sol
+
 
 if __name__ == '__main__':
     psi_sol, u_sol = solver()

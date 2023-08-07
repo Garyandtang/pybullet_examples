@@ -97,6 +97,16 @@ class Turtlebot():
         twist = np.array([v, w])
         return twist
 
+    def vel_cmd_to_action(self, vel_cmd):
+        # vel_cmd: [v, w] in m/s linear and angular velocity
+        # action: [v_l, v_r] in m/s left and right wheel velocity
+        v = vel_cmd[0]
+        w = vel_cmd[1]
+        v_l = v - self.length * w / 2
+        v_r = v + self.length * w / 2
+        action = np.array([v_l, v_r])
+        return action
+
 
     def step(self, action):
         # action: [v_l, v_r] in m/s left and right wheel velocity
