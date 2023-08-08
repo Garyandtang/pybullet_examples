@@ -8,6 +8,7 @@ from manifpy import SE2, SE2Tangent
 import casadi as ca
 from scipy.linalg import expm, sinm, cosm
 import math
+
 """
 error dynamics:
     psi_dot = At * psi_t + Bt * ut + ht
@@ -29,7 +30,7 @@ class ErrorDynamicsMPC():
     def __init__(self, ref_traj_dict):
         self.nState = 3
         self.nControl = 3
-        self.nTraj = 600
+        self.nTraj = 1200
         self.dt = 0.02
         self.setup_solver()
         self.setup_ref_traj(ref_traj_dict)
@@ -89,7 +90,7 @@ class ErrorDynamicsMPC():
         t: time -> index of reference trajectory (t = k * dt)
         """
         # convert state to SE2 coeffs
-        SE2_coeffs = SE2Tangent(state).exp().coeffs()
+        SE2_coeffs = state
         # get reference state and twist
         k = math.ceil(t / self.dt)
         ref_SE2_coeffs = self.ref_traj[:, k]
@@ -141,7 +142,15 @@ class ErrorDynamicsMPC():
         :return:
         """
 
-        return np.array([vel_cmd[0]*np.cos(psi[2]), vel_cmd[0]*np.sin(psi[2]), vel_cmd[1]])
+        return np.array([vel_cmd[0] * np.cos(psi[2]), vel_cmd[0] * np.sin(psi[2]), vel_cmd[1]])
+
+    def local_vel_to_vel_cmd(self, local_vel):
+        """
+        Convert velocity in local frame of robot to velocity command [linear_v, angular_v]
+        :return:
+        """
+        return np.array([0.5*local_vel[0] + 0.5*local_vel[1], local_vel[2]])
+        # return np.array([np.sqrt(local_vel[0] ** 2 + local_vel[1] ** 2), local_vel[2]])
 
     def get_init_psi(self):
         pass
@@ -195,6 +204,39 @@ def test_solve():
     xi = mpc.solve(state, t)
     print(xi)
 
+
+def test_mpc():
+    ref_traj_config = {'start_state': np.array([0, 0, 0]),
+                       'linear_vel': 0.5,
+                       'angular_vel': 0.5}
+    mpc = ErrorDynamicsMPC(ref_traj_config)
+    mpc.setup_solver()
+    state = np.array([-0.1, -0.1, 0])
+    state = SE2Tangent(state).exp().coeffs()
+    t = 0
+    # contrainer to store state
+    state_store = np.zeros((4, mpc.nTraj))
+    state_store[:, 0] = state
+
+
+    # start simulation
+    for i in range(mpc.nTraj-1):
+        state = state_store[:, i]
+        xi = mpc.solve(state, t)
+        X = SE2(state)  # SE2 state
+        X = X + SE2Tangent(xi * mpc.dt)  # X * SE2Tangent(xi * self.dt).exp()
+        state_store[:, i + 1] = X.coeffs()
+        t += mpc.dt
+
+    # plot state
+    plt.figure()
+    plt.plot(state_store[0, :], state_store[1, :])
+    plt.show()
+
+
+
+
+
 if __name__ == '__main__':
     # test_generate_ref_traj()
-    test_solve()
+   test_mpc()
