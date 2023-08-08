@@ -1,10 +1,11 @@
 import numpy as np
+import scipy.linalg
 import scipy.sparse as sparse
 import time
 import matplotlib.pyplot as plt
 from pyMPC.mpc import MPCController
 from scipy.integrate import ode
-from manifpy import SE2, SE2Tangent
+from manifpy import SE2, SE2Tangent, SO2, SO2Tangent
 import casadi as ca
 from scipy.linalg import expm, sinm, cosm
 import math
@@ -30,8 +31,8 @@ class ErrorDynamicsMPC():
     def __init__(self, ref_traj_dict):
         self.nState = 3
         self.nControl = 3
-        self.nTraj = 1200
-        self.dt = 0.02
+        self.nTraj = 170
+        self.dt = 0.05
         self.setup_solver()
         self.setup_ref_traj(ref_traj_dict)
 
@@ -80,9 +81,47 @@ class ErrorDynamicsMPC():
         return self.ref_traj, self.ref_v, self.dt
 
     def setup_solver(self):
-        self.Q = 100 * np.diag(np.ones(self.nState))
+        self.Q = 10 * np.diag(np.ones(self.nState))
         self.R = np.diag(np.ones(self.nControl))
         self.N = 20
+
+    def p_control_forward(self, state, t):
+        """
+        state: [x, y, theta] -> [x, y, cos(theta), sin(theta)]
+        t: time -> index of reference trajectory (t = k * dt)
+        """
+        # convert state to SE2 coeffs
+        SE2_coeffs = state
+        # get reference state and twist
+        k = math.ceil(t / self.dt)
+        ref_SE2_coeffs = self.ref_traj[:, k]
+        xi_goal = self.ref_v[:, k]  # desired twist
+        X_ref = SE2(ref_SE2_coeffs)
+        X = SE2(SE2_coeffs)
+        trans_error = X.translation() - X_ref.translation()
+        position_dff = scipy.linalg.norm(X_ref.translation() - X.translation())
+        if trans_error[1] < 0:
+            position_dff = - position_dff
+        orientation_dff = 1 - np.cos(X_ref.angle() - X.angle())
+        vel_cmd = 1*np.array([position_dff, orientation_dff])
+        return np.array([vel_cmd[0], 0, vel_cmd[1]]) + xi_goal
+
+    def p_control(self, state, t):
+        """
+        state: [x, y, theta] -> [x, y, cos(theta), sin(theta)]
+        t: time -> index of reference trajectory (t = k * dt)
+        """
+        # convert state to SE2 coeffs
+        SE2_coeffs = state
+        # get reference state and twist
+        k = math.ceil(t / self.dt)
+        ref_SE2_coeffs = self.ref_traj[:, k]
+        xi_goal = self.ref_v[:, k]  # desired twist
+        X_ref = SE2(ref_SE2_coeffs)
+        X = SE2(SE2_coeffs)
+        X_diff = X.between(X_ref)
+        xi = np.array([1,1,1]) * X_diff.log().coeffs() + xi_goal
+        return xi
 
     def solve(self, state, t):
         """
@@ -109,32 +148,35 @@ class ErrorDynamicsMPC():
         # setup casadi solver
         opti = ca.Opti()
         psi_var = opti.variable(self.nState, N + 1)
-        xi_var = opti.variable(self.nControl, N)
+        xi_var = opti.variable(2, N)
 
         # setup initial condition
         opti.subject_to(psi_var[:, 0] == psi_start)
 
         # setup dynamics constraints
         for i in range(N):
-            psi_next = psi_var[:, i] + dt * (A @ psi_var[:, i] + B @ xi_var[:, i] + h)
+            psi_next = psi_var[:, i] + dt * (A @ psi_var[:, i] + B @ self._to_local_vel(xi_var[:, i]) + h)
             opti.subject_to(psi_var[:, i + 1] == psi_next)
 
         # cost function
         cost = 0
         for i in range(N):
-            cost += ca.mtimes([psi_var[:, i].T, Q, psi_var[:, i]]) + ca.mtimes([xi_var[:, i].T, R, xi_var[:, i]])
+            cost += ca.mtimes([psi_var[:, i].T, Q, psi_var[:, i]]) + ca.mtimes([self._to_local_vel(xi_var[:, i]).T, R, self._to_local_vel(xi_var[:, i])])
 
-        cost += ca.mtimes([psi_var[:, -1].T, 10000 * Q, psi_var[:, -1]])
+        cost += ca.mtimes([psi_var[:, -1].T, 100 * Q, psi_var[:, -1]])
         opti.minimize(cost)
         opti.solver('ipopt')
         sol = opti.solve()
         psi_sol = sol.value(psi_var)
         xi_sol = sol.value(xi_var)
 
-        return xi_sol[:, 0]
+        return self._to_local_vel(xi_sol[:, 0])
 
     def _to_vel_cmd(self):
         pass
+
+    def _to_local_vel(self, vel_cmd):
+        return ca.vertcat(vel_cmd[0], 0, vel_cmd[1])
 
     def vel_cmd_to_local_vel(self, vel_cmd, psi):
         """
@@ -205,18 +247,74 @@ def test_solve():
     print(xi)
 
 
+def test_pid():
+    ref_traj_config = {'start_state': np.array([0, 0, 0]),
+                       'linear_vel': 0.5,
+                       'angular_vel': 0.5}
+    mpc = ErrorDynamicsMPC(ref_traj_config)
+    ref_traj, ref_v, dt = mpc.setup_ref_traj(ref_traj_config)
+    state = np.array([-0.1, -0.1, 0.1])
+    state = SE2Tangent(state).exp().coeffs()
+    pid_res_store = np.zeros((4, mpc.nTraj))
+    pid_res_store[:, 0] = state
+    # pid control
+    t = 0
+    for i in range(mpc.nTraj - 1):
+        state = pid_res_store[:, i]
+        xi = mpc.p_control(state, t)
+        X = SE2(state)
+        X = X + SE2Tangent(xi * mpc.dt)
+        pid_res_store[:, i + 1] = X.coeffs()
+        t += mpc.dt
+    # plot state
+    plt.figure()
+    plt.plot(ref_traj[0, :], ref_traj[1, :])
+    plt.plot(pid_res_store[0, :], pid_res_store[1, :])
+    plt.legend(['ref', 'pid'])
+    plt.show()
+
+
+    pid_distance_store = np.linalg.norm(pid_res_store[0:2, :] - ref_traj[0:2, :], axis=0)
+    plt.figure()
+    plt.plot(pid_distance_store)
+    plt.title('distance difference')
+    plt.legend(['mpc', 'pid'])
+    plt.show()
+
+    # plot orientation difference
+    orientation_store_pid = np.zeros(mpc.nTraj)
+    for i in range(mpc.nTraj):
+        X_d = SE2(ref_traj[:, i])
+        X_pid = SE2(pid_res_store[:, i])
+        X_d_inv_X = SO2(X_d.angle()).between(SO2(X.angle()))
+        X_d_inv_X_pid = SO2(X_d.angle()).between(SO2(X_pid.angle()))
+        orientation_store_pid[i] = scipy.linalg.norm(X_d_inv_X_pid.log().coeffs())
+
+    plt.figure()
+
+    plt.plot(orientation_store_pid[0:])
+    plt.title('orientation difference')
+    plt.legend(['mpc', 'pid'])
+
+    plt.show()
+
+
+
 def test_mpc():
     ref_traj_config = {'start_state': np.array([0, 0, 0]),
                        'linear_vel': 0.5,
                        'angular_vel': 0.5}
     mpc = ErrorDynamicsMPC(ref_traj_config)
+    ref_traj, ref_v, dt = mpc.setup_ref_traj(ref_traj_config)
     mpc.setup_solver()
-    state = np.array([-0.1, -0.1, 0])
+    state = np.array([-0.6, -0.6, 1.6])
     state = SE2Tangent(state).exp().coeffs()
     t = 0
     # contrainer to store state
     state_store = np.zeros((4, mpc.nTraj))
     state_store[:, 0] = state
+    pid_res_store = np.zeros((4, mpc.nTraj))
+    pid_res_store[:, 0] = state
 
 
     # start simulation
@@ -228,11 +326,54 @@ def test_mpc():
         state_store[:, i + 1] = X.coeffs()
         t += mpc.dt
 
+    # pid control
+    t = 0
+    for i in range(mpc.nTraj-1):
+        state = pid_res_store[:, i]
+        xi = mpc.p_control(state, t)
+        X = SE2(state)
+        X = X + SE2Tangent(xi * mpc.dt)
+        pid_res_store[:, i + 1] = X.coeffs()
+        t += mpc.dt
+
+
     # plot state
     plt.figure()
     plt.plot(state_store[0, :], state_store[1, :])
+    plt.plot(ref_traj[0, :], ref_traj[1, :])
+    plt.plot(pid_res_store[0, :], pid_res_store[1, :])
+    plt.legend(['state', 'ref_traj', 'pid_res'])
     plt.show()
 
+    # plot distance difference
+    distance_store = np.linalg.norm(state_store[0:2, :] - ref_traj[0:2, :], axis=0)
+    pid_distance_store = np.linalg.norm(pid_res_store[0:2, :] - ref_traj[0:2, :], axis=0)
+    plt.figure()
+    plt.plot(distance_store)
+    plt.plot(pid_distance_store)
+    plt.title('distance difference')
+    plt.legend(['mpc', 'pid'])
+    plt.show()
+
+    # plot orientation difference
+    orientation_store = np.zeros(mpc.nTraj)
+    orientation_store_pid = np.zeros(mpc.nTraj)
+    for i in range(mpc.nTraj):
+        X_d = SE2(ref_traj[:, i])
+        X = SE2(state_store[:, i])
+        X_pid = SE2(pid_res_store[:, i])
+        X_d_inv_X = SO2(X_d.angle()).between(SO2(X.angle()))
+        X_d_inv_X_pid = SO2(X_d.angle()).between(SO2(X_pid.angle()))
+        orientation_store[i] = scipy.linalg.norm(X_d_inv_X.log().coeffs())
+        orientation_store_pid[i] = scipy.linalg.norm(X_d_inv_X_pid.log().coeffs())
+
+    plt.figure()
+    plt.plot(orientation_store[0:])
+    plt.plot(orientation_store_pid[0:])
+    plt.title('orientation difference')
+    plt.legend(['mpc', 'pid'])
+
+    plt.show()
 
 
 
