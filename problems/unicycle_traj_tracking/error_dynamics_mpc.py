@@ -27,7 +27,7 @@ class ErrorDynamicsMPC():
     def __init__(self, ref_traj_dict):
         self.nState = 3
         self.nControl = 3
-        self.nTraj = 400
+        self.nTraj = 170
         self.dt = 0.05
         self.setup_solver()
         self.setup_ref_traj(ref_traj_dict)
@@ -116,10 +116,8 @@ class ErrorDynamicsMPC():
         X_ref = SE2(ref_SE2_coeffs)
         X = SE2(SE2_coeffs)
         X_diff = X.between(X_ref)
-        xx = X_diff.log().coeffs()
-        # xi_feedback = np.array([1, 1, 1]) * self._to_local_vel(self.local_vel_to_vel_cmd(xx))
-        xi_feedback = np.array([1, 1, 1]) * self._to_local_vel(np.array([np.sqrt(xx[0] ** 2 + xx[1] ** 2), xx[2]]))
-        xi = xi_feedback
+        xi_feedback = np.array([0.9, 0, 1]) * self._to_local_vel(self.local_vel_to_vel_cmd(X_diff.log().coeffs()))
+        xi = xi_feedback + xi_goal
         return xi
 
     def solve(self, state, t):

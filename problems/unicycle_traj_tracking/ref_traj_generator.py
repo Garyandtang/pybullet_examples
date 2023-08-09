@@ -5,29 +5,67 @@ import matplotlib.pyplot as plt
 from manifpy import SE2, SE2Tangent, SO2, SO2Tangent
 import casadi as ca
 import math
+import enum
 
-"""
-error dynamics:
-    psi_dot = At * psi_t + Bt * ut + ht
-state:
-    psi: lie algebra element of Psi (SE2 error)
-control:
-    ut = xi_t: twist (se2 element)
 
-State transition matrix:
-    At: ad_{xi_d,t}
-Control matrix:
-    B_k = I
-offset:
-    ht = xi_t,d: desired twist (se2 element)
-"""
+class TrajType(str, enum.Enum):
+    CIRCLE = 'circle'
+    EIGHT = 'eight'
+
+
+traj_config = {'type': TrajType.CIRCLE,
+               'param': {'start_state': np.array([0, 0, 0]),
+                         'linear_vel': 0.5,
+                         'angular_vel': 0.5,
+                         'dt': 0.05}}
+
+
+class TrajGenerator:
+    def __init__(self, config):
+        if not config:
+            config = {'type': TrajType.CIRCLE,
+                      'param': {'start_state': np.array([0, 0, 0]),
+                                'linear_vel': 0.5,
+                                'angular_vel': 0.5,
+                                'dt': 0.05,
+                                'nTraj': 170}}
+        if config['type'] == TrajType.CIRCLE:
+            self.generate_circle_traj(config['param'])
+        elif config['type'] == TrajType.EIGHT:
+            self.generate_eight_traj(config['param'])
+
+    def generate_circle_traj(self, config):
+        self.dt = config['dt']
+        self.nTraj = config['nTraj']
+        self.ref_traj = np.zeros((4, self.nTraj))  # [x, y, cos(theta), sin(theta)]
+        self.ref_v = np.zeros((3, self.nTraj))  # [vx, vy, w]
+        self.ref_traj[:, 0] = config['start_state']
+        vel_cmd = np.array([config['linear_vel'], config['angular_vel']])
+
+
+        pass
+
+    def generate_eight_traj(self, config):
+        pass
+
+    def get_traj(self):
+        return self.traj
+
+    def vel_cmd_to_local_vel(self, vel_cmd, state):
+        # vel_cmd: [v, w]
+        # state: [x, y, theta]
+        # return: [vx, vy, w]
+        theta = state[2]
+        R = np.array([[np.cos(theta), -np.sin(theta)],
+                      [np.sin(theta), np.cos(theta)]])
+        return np.dot(R, vel_cmd)
 
 
 class ErrorDynamicsMPC():
     def __init__(self, ref_traj_dict):
         self.nState = 3
         self.nControl = 3
-        self.nTraj = 400
+        self.nTraj = 170
         self.dt = 0.05
         self.setup_solver()
         self.setup_ref_traj(ref_traj_dict)
@@ -99,7 +137,7 @@ class ErrorDynamicsMPC():
         if trans_error[1] < 0:
             position_dff = - position_dff
         orientation_dff = 1 - np.cos(X_ref.angle() - X.angle())
-        vel_cmd = 1*np.array([position_dff, orientation_dff])
+        vel_cmd = 1 * np.array([position_dff, orientation_dff])
         return np.array([vel_cmd[0], 0, vel_cmd[1]]) + xi_goal
 
     def p_control(self, state, t):
@@ -116,10 +154,8 @@ class ErrorDynamicsMPC():
         X_ref = SE2(ref_SE2_coeffs)
         X = SE2(SE2_coeffs)
         X_diff = X.between(X_ref)
-        xx = X_diff.log().coeffs()
-        # xi_feedback = np.array([1, 1, 1]) * self._to_local_vel(self.local_vel_to_vel_cmd(xx))
-        xi_feedback = np.array([1, 1, 1]) * self._to_local_vel(np.array([np.sqrt(xx[0] ** 2 + xx[1] ** 2), xx[2]]))
-        xi = xi_feedback
+        xi_feedback = np.array([0.9, 0, 1]) * self._to_local_vel(self.local_vel_to_vel_cmd(X_diff.log().coeffs()))
+        xi = xi_feedback + xi_goal
         return xi
 
     def solve(self, state, t):
@@ -160,7 +196,8 @@ class ErrorDynamicsMPC():
         # cost function
         cost = 0
         for i in range(N):
-            cost += ca.mtimes([psi_var[:, i].T, Q, psi_var[:, i]]) + ca.mtimes([self._to_local_vel(xi_var[:, i]).T, R, self._to_local_vel(xi_var[:, i])])
+            cost += ca.mtimes([psi_var[:, i].T, Q, psi_var[:, i]]) + ca.mtimes(
+                [self._to_local_vel(xi_var[:, i]).T, R, self._to_local_vel(xi_var[:, i])])
 
         cost += ca.mtimes([psi_var[:, -1].T, 100 * Q, psi_var[:, -1]])
         opti.minimize(cost)
@@ -190,7 +227,7 @@ class ErrorDynamicsMPC():
         Convert velocity in local frame of robot to velocity command [linear_v, angular_v]
         :return:
         """
-        return np.array([0.5*local_vel[0] + 0.5*local_vel[1], local_vel[2]])
+        return np.array([0.5 * local_vel[0] + 0.5 * local_vel[1], local_vel[2]])
         # return np.array([np.sqrt(local_vel[0] ** 2 + local_vel[1] ** 2), local_vel[2]])
 
     def get_init_psi(self):
@@ -273,7 +310,6 @@ def test_pid():
     plt.legend(['ref', 'pid'])
     plt.show()
 
-
     pid_distance_store = np.linalg.norm(pid_res_store[0:2, :] - ref_traj[0:2, :], axis=0)
     plt.figure()
     plt.plot(pid_distance_store)
@@ -299,7 +335,6 @@ def test_pid():
     plt.show()
 
 
-
 def test_mpc():
     ref_traj_config = {'start_state': np.array([0, 0, 0]),
                        'linear_vel': 0.5,
@@ -316,9 +351,8 @@ def test_mpc():
     pid_res_store = np.zeros((4, mpc.nTraj))
     pid_res_store[:, 0] = state
 
-
     # start simulation
-    for i in range(mpc.nTraj-1):
+    for i in range(mpc.nTraj - 1):
         state = state_store[:, i]
         xi = mpc.solve(state, t)
         X = SE2(state)  # SE2 state
@@ -328,14 +362,13 @@ def test_mpc():
 
     # pid control
     t = 0
-    for i in range(mpc.nTraj-1):
+    for i in range(mpc.nTraj - 1):
         state = pid_res_store[:, i]
         xi = mpc.p_control(state, t)
         X = SE2(state)
         X = X + SE2Tangent(xi * mpc.dt)
         pid_res_store[:, i + 1] = X.coeffs()
         t += mpc.dt
-
 
     # plot state
     plt.figure()
@@ -376,8 +409,6 @@ def test_mpc():
     plt.show()
 
 
-
-
 if __name__ == '__main__':
     # test_generate_ref_traj()
-   test_mpc()
+    test_mpc()
