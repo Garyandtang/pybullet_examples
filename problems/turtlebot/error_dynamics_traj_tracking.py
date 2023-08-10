@@ -44,7 +44,7 @@ class ErrorDynamicsMPC():
         # write a contrainer to store the reference trajectory
         self.ref_traj = np.zeros((4, self.nTraj))  # [x, y, cos(theta), sin(theta)]
         self.ref_v = np.zeros((3, self.nTraj))
-        self.ref_traj[:, 0] = SE2Tangent(state).exp().coeffs()
+        self.ref_traj[:, 0] = SE2(state[0], state[1], state[2]).coeffs()
         self.ref_v[:, 0] = xi
 
         for i in range(self.nTraj - 1):
@@ -183,7 +183,8 @@ class ErrorDynamicsMPC():
         :return:
         """
 
-        return np.array([vel_cmd[0] * np.cos(psi[2]), vel_cmd[0] * np.sin(psi[2]), vel_cmd[1]])
+        return np.array([vel_cmd[0], 0, vel_cmd[1]])
+
 
     def local_vel_to_vel_cmd(self, local_vel):
         """
@@ -247,7 +248,7 @@ def test_solve():
 
 
 def test_pid():
-    ref_traj_config = {'start_state': np.array([0, 0, 0]),
+    ref_traj_config = {'start_state': np.array([1, 1, 0]),
                        'linear_vel': 0.5,
                        'angular_vel': 0.5}
     mpc = ErrorDynamicsMPC(ref_traj_config)
@@ -380,4 +381,4 @@ def test_mpc():
 
 if __name__ == '__main__':
     # test_generate_ref_traj()
-   test_mpc()
+   test_pid()

@@ -19,6 +19,9 @@ class DynamicsType(str, Enum):
     EULER_SECOND_ORDER = 'euler_second_order'  # second order dynamics with orientation in euler.
     DIFF_FLAT = 'diff_flat'  # Differential flatness dynamics.
 
+class TrajType(str, Enum):
+    CIRCLE = 'circle'
+    EIGHT = 'eight'
 
 if __name__ == '__main__':
     print(Task.STABILIZATION)
