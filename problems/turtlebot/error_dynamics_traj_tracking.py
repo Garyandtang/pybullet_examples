@@ -117,10 +117,27 @@ class ErrorDynamicsMPC():
         X = SE2(SE2_coeffs)
         X_diff = X.between(X_ref)
         xx = X_diff.log().coeffs()
+        xi_feedback = np.array([0.7, 0, 1]) * self._to_local_vel(self.local_vel_to_vel_cmd(xx))
+        # xi_feedback = np.array([3, 1, 1]) * self._to_local_vel(np.array([np.sqrt(xx[0] ** 2 + xx[1] ** 2), xx[2]]))
+        xi = xi_feedback + xi_goal
+        return xi
+
+    def p_control_1(self, state, desired_state):
+        """
+        state: [x, y, theta] -> [x, y, cos(theta), sin(theta)]
+        t: time -> index of reference trajectory (t = k * dt)
+        """
+        # convert state to SE2 coeffs
+        SE2_coeffs = state
+        # get reference state and twist
+        X_ref = SE2(desired_state)
+        X = SE2(SE2_coeffs)
+        X_diff = X.between(X_ref)
+        xx = X_diff.log().coeffs()
         # xi_feedback = np.array([1, 1, 1]) * self._to_local_vel(self.local_vel_to_vel_cmd(xx))
         xi_feedback = np.array([1, 1, 1]) * self._to_local_vel(np.array([np.sqrt(xx[0] ** 2 + xx[1] ** 2), xx[2]]))
         xi = xi_feedback
-        return xi
+        return xx
 
     def solve(self, state, t):
         """
@@ -253,25 +270,28 @@ def test_pid():
                        'angular_vel': 0.5}
     mpc = ErrorDynamicsMPC(ref_traj_config)
     ref_traj, ref_v, dt = mpc.setup_ref_traj(ref_traj_config)
-    state = np.array([-0.1, -0.1, 0.1])
-    state = SE2Tangent(state).exp().coeffs()
+    state = np.array([-0.1, -0.1, 0])
+    state = SE2(state[0], state[1], state[2]).coeffs()
     pid_res_store = np.zeros((4, mpc.nTraj))
     pid_res_store[:, 0] = state
     # pid control
     t = 0
+    desired_state = np.array([-0.12, -0.1, np.pi/2])
+    desired_state = SE2(desired_state[0], desired_state[1], desired_state[2]).coeffs()
     for i in range(mpc.nTraj - 1):
         state = pid_res_store[:, i]
-        xi = mpc.p_control(state, t)
-        print(xi)
+        xi = mpc.p_control_1(state, desired_state)
+        # print(xi)
         X = SE2(state)
+        print(X)
         X = X + SE2Tangent(xi * mpc.dt)
         pid_res_store[:, i + 1] = X.coeffs()
         t += mpc.dt
     # plot state
     plt.figure()
-    plt.plot(ref_traj[0, :], ref_traj[1, :])
+    # plt.plot(ref_traj[0, :], ref_traj[1, :])
     plt.plot(pid_res_store[0, :], pid_res_store[1, :])
-    plt.legend(['ref', 'pid'])
+    # plt.legend(['ref', 'pid'])
     plt.show()
 
 
@@ -308,7 +328,7 @@ def test_mpc():
     mpc = ErrorDynamicsMPC(ref_traj_config)
     ref_traj, ref_v, dt = mpc.setup_ref_traj(ref_traj_config)
     mpc.setup_solver()
-    state = np.array([-0.6, -0.6, 1.6])
+    state = np.array([-0.6, -0.6, 0.1])
     state = SE2Tangent(state).exp().coeffs()
     t = 0
     # contrainer to store state

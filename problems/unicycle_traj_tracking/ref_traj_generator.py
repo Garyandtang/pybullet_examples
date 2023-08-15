@@ -67,6 +67,17 @@ def test_traj_generator():
     plt.title('Reference Trajectory')
     plt.show()
 
+    # convert to [x, y, theta]
+    traj = np.zeros((3, ref_traj.shape[1]))
+    for i in range(ref_traj.shape[1]):
+        X = SE2(ref_traj[:, i])
+        traj[:, i] = np.array([X.x(), X.y(), X.angle()])
+
+    plt.figure(2)
+    plt.plot(traj[0, :], traj[1, :], 'b')
+    plt.title('Reference Trajectory [x, y, theta]')
+    plt.show()
+
 
 if __name__ == '__main__':
     test_traj_generator()

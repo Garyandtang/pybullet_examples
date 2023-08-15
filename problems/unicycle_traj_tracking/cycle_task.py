@@ -18,18 +18,18 @@ def main():
 
     # set solver
     traj_config = {'type': TrajType.CIRCLE,
-                   'param': {'start_state': np.array([1, 1, np.pi / 2]),
+                   'param': {'start_state': np.array([0, 0, 0]),
                              'linear_vel': 0.5,
                              'angular_vel': 0.5,
-                             'nTraj': 170,
-                             'dt': 0.05}}
+                             'nTraj': 670,
+                             'dt': 0.02}}
     mpc = ErrorDynamicsMPC(traj_config)
     dt = mpc.dt
     t = 0
     while 1:
-
         start = time.time()
         curr_state = env.get_state()
+        # convert state to SE2
         curr_state = SE2(curr_state[0], curr_state[1], curr_state[2]).coeffs()
         print('curr_state: ', curr_state)
         xi = mpc.solve(curr_state, t)
