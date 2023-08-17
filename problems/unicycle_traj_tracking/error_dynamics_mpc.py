@@ -31,8 +31,8 @@ the reference trajectory is generated using TrajGenerator class in ref_traj_gene
 
 class ErrorDynamicsMPC:
     def __init__(self, ref_traj_config):
-        self.nState = 3
-        self.nControl = 3
+        self.nState = 3  # twist error (se2 vee) R^3
+        self.nControl = 2  # velocity control (v, w) R^2
         self.nTraj = None
         self.ref_traj = None
         self.ref_v = None
@@ -54,22 +54,23 @@ class ErrorDynamicsMPC:
         self.R = R * np.diag(np.ones(self.nControl))
         self.N = N
 
-    def solve(self, state, t):
+    def solve(self, SE2_coeffs, t):
         """
-        state: [x, y, theta] -> [x, y, cos(theta), sin(theta)]
+        SE2_coeffs: [x, y, cos(theta), sin(theta)] (SE2 coeffs of current state)
         t: time -> index of reference trajectory (t = k * dt)
+
+        return:
+            u: control input (v, w)
         """
         if self.ref_traj is None:
             raise ValueError('Reference trajectory is not set up yet!')
 
-        # convert state to SE2 coeffs
-        SE2_coeffs = state
         # get reference state and twist
         k = math.ceil(t / self.dt)
-        ref_SE2_coeffs = self.ref_traj[:, k]
+        curr_ref_SE2_coeffs = self.ref_traj[:, k]
 
-        # get error state and error dynamics
-        psi_start = SE2(ref_SE2_coeffs).between(SE2(SE2_coeffs)).log().coeffs()
+        # get x init by calculating log between current state and reference state
+        x_init = SE2(curr_ref_SE2_coeffs).between(SE2(SE2_coeffs)).log().coeffs()
         Q = self.Q
         R = self.R
         N = self.N
@@ -78,36 +79,37 @@ class ErrorDynamicsMPC:
 
         # setup casadi solver
         opti = ca.Opti()
-        psi_var = opti.variable(self.nState, N + 1)
-        xi_var = opti.variable(2, N)
+        x_var = opti.variable(self.nState, N + 1)
+        u_var = opti.variable(2, N)
 
         # setup initial condition
-        opti.subject_to(psi_var[:, 0] == psi_start)
+        opti.subject_to(x_var[:, 0] == x_init)
 
         # setup dynamics constraints
+        # x_next = A * x + B * u + h
         for i in range(N):
             index = min(k + i, self.nTraj - 1)
-            xi_goal = self.ref_v[:, index]  # desir
-            A = -SE2Tangent(xi_goal).smallAdj()
+            u_d = self.ref_v[:, index]  # desir
+            A = -SE2Tangent(u_d).smallAdj()
             B = np.eye(self.nControl)
-            h = -xi_goal
-            psi_next = psi_var[:, i] + dt * (A @ psi_var[:, i] + B @ self._to_local_vel(xi_var[:, i]) + h)
-            opti.subject_to(psi_var[:, i + 1] == psi_next)
+            h = -u_d
+            x_next = x_var[:, i] + dt * (A @ x_var[:, i] + B @ self._to_local_vel(u_var[:, i]) + h)
+            opti.subject_to(x_var[:, i + 1] == x_next)
 
         # cost function
         cost = 0
         for i in range(N):
-            cost += ca.mtimes([psi_var[:, i].T, Q, psi_var[:, i]]) + ca.mtimes(
-                [self._to_local_vel(xi_var[:, i]).T, R, self._to_local_vel(xi_var[:, i])])
+            cost += ca.mtimes([x_var[:, i].T, Q, x_var[:, i]]) + ca.mtimes(
+                [self._to_local_vel(u_var[:, i]).T, R, self._to_local_vel(u_var[:, i])])
 
-        cost += ca.mtimes([psi_var[:, -1].T, 100 * Q, psi_var[:, -1]])
+        cost += ca.mtimes([x_var[:, -1].T, 100 * Q, x_var[:, -1]])
         opti.minimize(cost)
         opti.solver('ipopt')
         sol = opti.solve()
-        psi_sol = sol.value(psi_var)
-        xi_sol = sol.value(xi_var)
+        psi_sol = sol.value(x_var)
+        u_sol = sol.value(u_var)
 
-        return xi_sol[:, 0]
+        return u_sol[:, 0]
 
     def _to_local_vel(self, vel_cmd):
         return ca.vertcat(vel_cmd[0], 0, vel_cmd[1])
