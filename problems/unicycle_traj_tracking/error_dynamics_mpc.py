@@ -33,6 +33,7 @@ class ErrorDynamicsMPC:
     def __init__(self, ref_traj_config):
         self.nState = 3  # twist error (se2 vee) R^3
         self.nControl = 2  # velocity control (v, w) R^2
+        self.nTwist = 3  # twist (se2 vee) R^3
         self.nTraj = None
         self.ref_traj = None
         self.ref_v = None
@@ -49,7 +50,7 @@ class ErrorDynamicsMPC:
         self.ref_traj, self.ref_v, self.dt = traj_generator.get_traj()
         self.nTraj = self.ref_traj.shape[1]
 
-    def setup_solver(self, Q=10, R=1, N=5):
+    def setup_solver(self, Q=10, R=1, N=10):
         self.Q = Q * np.diag(np.ones(self.nState))
         self.R = R * np.diag(np.ones(self.nControl))
         self.N = N
@@ -91,7 +92,7 @@ class ErrorDynamicsMPC:
             index = min(k + i, self.nTraj - 1)
             u_d = self.ref_v[:, index]  # desir
             A = -SE2Tangent(u_d).smallAdj()
-            B = np.eye(self.nControl)
+            B = np.eye(self.nTwist)
             h = -u_d
             x_next = x_var[:, i] + dt * (A @ x_var[:, i] + B @ self._to_local_vel(u_var[:, i]) + h)
             opti.subject_to(x_var[:, i + 1] == x_next)
@@ -100,7 +101,7 @@ class ErrorDynamicsMPC:
         cost = 0
         for i in range(N):
             cost += ca.mtimes([x_var[:, i].T, Q, x_var[:, i]]) + ca.mtimes(
-                [self._to_local_vel(u_var[:, i]).T, R, self._to_local_vel(u_var[:, i])])
+                [u_var[:, i].T, R, u_var[:, i]])
 
         cost += ca.mtimes([x_var[:, -1].T, 100 * Q, x_var[:, -1]])
         opti.minimize(cost)
@@ -125,7 +126,7 @@ def test_mpc():
 
     mpc = ErrorDynamicsMPC(traj_config)
     ref_traj = mpc.ref_traj
-    init_state = np.array([1, 1, 0])
+    init_state = np.array([0.5, 0.5, 0])
     init_state = SE2Tangent(init_state).exp().coeffs()
     t = 0
     # contrainer to store state
