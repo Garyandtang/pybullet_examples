@@ -116,50 +116,27 @@ class UnicycleModel:
         self.symbolic = FirstOrderModel(dynamics, cost, self.dt, params)
 
 
-class unicycleTrackingProblem:
+class NaiveMPC:
     def __init__(self, ref_traj_config):
         config = {'cost_type': CostType.POSITION,
                   'dynamics_type': DynamicsType.EULER_FIRST_ORDER}
-        key_word = {'gui': False, 'config': config}
         # dynamics
         self.model = UnicycleModel(config).symbolic
-        self.nx = self.model.nx
-        self.nu = self.model.nu
-
-        # cost function
-        q_lqr = [100,100,3]
-        r_lqr = [1]
-        self.set_cost_weights(q_lqr, r_lqr)
-
-        # reference trajectory config
+        self.nState = self.model.nx  # 3 (x, y, theta)
+        self.nControl = self.model.nu  # 2 (v, w)
         self.set_ref_traj(ref_traj_config)
+        self.set_solver()
+        self.cost_func = self.model.cost_func
 
-        # control bounds
 
+    def set_solver(self, Q=100, R=1, N=10):
+        self.Q = Q * np.eye(self.model.nx)
+        self.R = R * np.eye(self.model.nu)
+        self.N = N
     def set_ref_traj(self, traj_config):
         traj_generator = TrajGenerator(traj_config)
         self.ref_traj, self.ref_v, self.dt = traj_generator.get_traj()
         self.nTraj = self.ref_traj.shape[1]
-
-    def set_cost_weights(self, q_lqr, r_lqr):
-        self.q_lqr = q_lqr
-        self.r_lqr = r_lqr
-        self.cost_func = self.model.cost_func
-
-class NaiveMPC:
-    def __init__(self, problem):
-        self.nState = problem.nx
-        self.nControl = problem.nu
-        self.nTraj = problem.nTraj
-        self.model = problem.model
-        self.ref_traj = problem.ref_traj
-        self.ref_v = problem.ref_v
-        self.dt = problem.dt
-        self.cost_func = problem.cost_func
-        self.Q = get_cost_weight_matrix(problem.q_lqr, self.model.nx)
-        self.R = get_cost_weight_matrix(problem.r_lqr, self.model.nu)
-
-        self.N = 10
 
     def solve(self, state, t):
         """
@@ -223,8 +200,7 @@ def test_mpc():
                              'nTraj': 600,
                              'dt': 0.05}}
 
-    problems = unicycleTrackingProblem(traj_config)
-    mpc = NaiveMPC(problems)
+    mpc = NaiveMPC(traj_config)
 
     ref_traj = mpc.ref_traj
     init_state = np.array([-0.2, -0.2, 0])
