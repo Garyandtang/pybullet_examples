@@ -22,6 +22,7 @@ class DynamicsType(str, Enum):
 class TrajType(str, Enum):
     CIRCLE = 'circle'
     EIGHT = 'eight'
+    POSE_REGULATION = 'pose_regulation'
 
 
 class WMRType(str, Enum):

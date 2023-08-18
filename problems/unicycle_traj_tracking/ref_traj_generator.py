@@ -23,6 +23,8 @@ class TrajGenerator:
             self.generate_circle_traj(config['param'])
         elif config['type'] == TrajType.EIGHT:
             self.generate_eight_traj(config['param'])
+        elif config['type'] == TrajType.POSE_REGULATION:
+            self.generate_pose_regulation_traj(config['param'])
 
     def generate_circle_traj(self, config):
         self.dt = config['dt']
@@ -41,6 +43,23 @@ class TrajGenerator:
             X = X + SE2Tangent(v * self.dt)  # X * SE2Tangent(xi * self.dt).exp()
             self.ref_SE2[:, i + 1] = X.coeffs()
             self.ref_twist[:, i + 1] = v
+
+    def generate_pose_regulation_traj(self, config):
+        # example of pose regulation config
+        # config = {'type': TrajType.POSE_REGULATION,
+        #           'param': {'end_state': np.array([0, 0, 0]),
+        #                     'dt': 0.05,
+        #                     'nTraj': 170}}
+        self.dt = config['dt']
+        self.nTraj = config['nTraj']
+        self.ref_SE2 = np.zeros((self.nSE2, self.nTraj))
+        end_state = config['end_state']
+        end_SE2_coeffs = SE2(end_state[0], end_state[1], end_state[2]).coeffs()
+        for i in range(self.nTraj):
+            self.ref_SE2[:, i] = end_SE2_coeffs
+        self.ref_twist = np.zeros((self.nTwist, self.nTraj))
+
+
 
     def generate_eight_traj(self, config):
         raise NotImplementedError
@@ -81,5 +100,19 @@ def test_traj_generator():
     plt.show()
 
 
+def test_pose_regulation_traj_generator():
+    config = {'type': TrajType.POSE_REGULATION,
+              'param': {'end_state': np.array([0, 0, 0]),
+                        'dt': 0.05,
+                        'nTraj': 170}}
+    traj_generator = TrajGenerator(config)
+    ref_SE2, ref_twist, dt = traj_generator.get_traj()
+    plt.figure(1)
+    plt.plot(ref_SE2[0, :], ref_SE2[1, :], 'b')
+    plt.title('Reference Trajectory')
+    plt.show()
+
+
+
 if __name__ == '__main__':
-    test_traj_generator()
+    test_pose_regulation_traj_generator()
