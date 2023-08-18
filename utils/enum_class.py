@@ -23,6 +23,12 @@ class TrajType(str, Enum):
     CIRCLE = 'circle'
     EIGHT = 'eight'
 
+
+class WMRType(str, Enum):
+    UNICYCLE = 'unicycle'
+    DIFF_DRIVE = 'diff_drive'
+    CAR_LIKE = 'car_like'
+
 if __name__ == '__main__':
     print(Task.STABILIZATION)
     print(type(Task.STABILIZATION.value))

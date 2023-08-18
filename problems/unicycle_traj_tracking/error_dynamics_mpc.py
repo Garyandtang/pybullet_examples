@@ -142,8 +142,8 @@ def test_mpc():
     # start simulation
     for i in range(mpc.nTraj - 1):
         state = state_store[:, i]
-        xi = mpc.solve(state, t)
-        xi = mpc._to_local_twist(xi)
+        vel_cmd = mpc.solve(state, t)
+        xi = mpc._to_local_twist(vel_cmd)
         X = SE2(state)  # SE2 state
         X = X + SE2Tangent(xi * mpc.dt)
         state_store[:, i + 1] = X.coeffs()
