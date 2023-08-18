@@ -1,13 +1,9 @@
-import numpy as np
 import scipy.linalg
-import time
 import matplotlib.pyplot as plt
 from manifpy import SE2, SE2Tangent, SO2, SO2Tangent
-import casadi as ca
 import math
 from ref_traj_generator import TrajGenerator
 from utils.enum_class import TrajType, CostType, DynamicsType
-from envs.turtlebot.turtlebot_model import TurtlebotModel
 from controllers.lqr.lqr_utils import *
 import casadi as ca
 from utils.enum_class import CostType, DynamicsType
@@ -15,30 +11,14 @@ from utils.symbolic_system import FirstOrderModel
 from liecasadi import SO3
 
 """
-this ErrorDynamicsMPC class is used to solve tracking problem of uni-cycle model
-using MPC. The error dynamics is defined as follows:
-error dynamics:
-    psi_dot = At * psi_t + Bt * ut + ht
-state:
-    psi: lie algebra element of Psi (SE2 error)
-control:
-    ut = xi_t: twist (se2 element)
-
-State transition matrix:
-    At: ad_{xi_d,t}
-Control matrix:
-    B_k = I
-offset:
-    ht = xi_t,d: desired twist (se2 element)
-
-the reference trajectory is generated using TrajGenerator class in ref_traj_generator.py
+naive MPC for unicycle model
 """
+
 
 class UnicycleModel:
     def __init__(self, config: dict = {}, pyb_freq: int = 50, **kwargs):
         self.nState = 3
         self.nControl = 2
-
 
         self.control_freq = pyb_freq
         self.dt = 1. / self.control_freq
@@ -117,9 +97,8 @@ class UnicycleModel:
 
 
 class NaiveMPC:
-    def __init__(self, ref_traj_config):
-        config = {'cost_type': CostType.POSITION,
-                  'dynamics_type': DynamicsType.EULER_FIRST_ORDER}
+    def __init__(self, ref_traj_config, model_config={}):
+        config = model_config
         # dynamics
         self.model = UnicycleModel(config).symbolic
         self.nState = self.model.nx  # 3 (x, y, theta)
@@ -128,22 +107,35 @@ class NaiveMPC:
         self.set_solver()
         self.cost_func = self.model.cost_func
 
-
-    def set_solver(self, Q=100, R=1, N=10):
-        self.Q = Q * np.eye(self.model.nx)
+    def set_solver(self, q=[15, 15, 6], R=0.5, N=10):
+        self.Q = 5*np.diag(q)
         self.R = R * np.eye(self.model.nu)
         self.N = N
+
     def set_ref_traj(self, traj_config):
         traj_generator = TrajGenerator(traj_config)
-        self.ref_traj, self.ref_v, self.dt = traj_generator.get_traj()
-        self.nTraj = self.ref_traj.shape[1]
+        ref_SE2, ref_twist, self.dt = traj_generator.get_traj()
+        self.ref_state = np.zeros((self.nState, ref_SE2.shape[1]))
+        # convert SE2 to x, y, theta
+        for i in range(ref_SE2.shape[1]):
+            self.ref_state[:2, i] = ref_SE2[:2, i]
+            self.ref_state[2, i] = SE2(ref_SE2[:, i]).angle()
+
+        # convert twist to v, w
+        self.ref_control = np.zeros((self.nControl, ref_twist.shape[1]))
+        for i in range(ref_twist.shape[1]):
+            self.ref_control[0, i] = ref_twist[0, i]
+            self.ref_control[1, i] = ref_twist[2, i]
+
+
+        self.nTraj = self.ref_state.shape[1]
 
     def solve(self, state, t):
         """
         state: [x, y, theta]
         t: time -> index of reference trajectory (t = k * dt)
         """
-        if self.ref_traj is None:
+        if self.ref_state is None:
             raise ValueError('Reference trajectory is not set up yet!')
 
         nu = self.nControl
@@ -151,8 +143,8 @@ class NaiveMPC:
         k = math.ceil(t / self.dt)
         N = self.N
         index_end = min(k + N, self.nTraj - 1)
-        X = SE2(self.ref_traj[:, index_end])
-        x_goal = np.array([X.x(), X.y(), X.angle()])
+        X = self.ref_state[:, index_end]
+        # x_goal = np.array([X.x(), X.y(), X.angle()])
         opti = ca.Opti()
         x_var = opti.variable(nx, N + 1)
         u_var = opti.variable(nu, N)
@@ -171,13 +163,9 @@ class NaiveMPC:
 
         for i in range(N):
             index = min(k + i, self.nTraj - 1)
-            X = SE2(self.ref_traj[:, index])
-            x_target = np.array([X.x(), X.y(), X.angle()])
-            u_target = self._to_vel_cmd(self.ref_v[:, index])
-            # u_target = np.zeros((nu, 1))
-            # u_target = np.array([self.ref_v[i], 0])
+            x_target = self.ref_state[:, index]
+            u_target = self.ref_control[:, index]
             cost += self.cost_func(x_var[:, i], x_target, u_var[:, i], u_target, self.Q, self.R)
-        # cost += self.cost_func(x_var[:, -1],x_goal, np.zeros((nu, 1)), np.zeros((nu, 1)), 100 * self.Q, self.R)
 
         # cost
         opti.minimize(cost)
@@ -192,19 +180,21 @@ class NaiveMPC:
     def _to_vel_cmd(self, local_vel):
         return ca.vertcat(local_vel[0], local_vel[2])
 
+
 def test_mpc():
+    init_state = np.array([-0.2, -0.2, 0])
     traj_config = {'type': TrajType.CIRCLE,
                    'param': {'start_state': np.array([0, 0, 0]),
                              'linear_vel': 0.5,
                              'angular_vel': 0.5,
-                             'nTraj': 600,
+                             'nTraj': 170,
                              'dt': 0.05}}
+    ref_traj_generator = TrajGenerator(traj_config)
+    ref_SE2, ref_twist, dt = ref_traj_generator.get_traj()
+    model_config = {'cost_type': CostType.POSITION,
+              'dynamics_type': DynamicsType.EULER_FIRST_ORDER}
+    mpc = NaiveMPC(traj_config, model_config=model_config)
 
-    mpc = NaiveMPC(traj_config)
-
-    ref_traj = mpc.ref_traj
-    init_state = np.array([-0.2, -0.2, 0])
-    # init_state = SE2Tangent(init_state).exp().coeffs()
     t = 0
     # contrainer to store state
     state_store = np.zeros((3, mpc.nTraj))
@@ -222,14 +212,14 @@ def test_mpc():
 
     # plot
     plt.figure()
-    plt.plot(ref_traj[0, :], ref_traj[1, :], 'r')
+    plt.plot(ref_SE2[0, :], ref_SE2[1, :], 'r')
     plt.plot(state_store[0, :], state_store[1, :], 'b')
     plt.legend(['reference', 'trajectory'])
 
     plt.show()
 
     # plot distance difference
-    distance_store = np.linalg.norm(state_store[0:2, :] - ref_traj[0:2, :], axis=0)
+    distance_store = np.linalg.norm(state_store[0:2, :] - ref_SE2[0:2, :], axis=0)
     plt.figure()
     plt.plot(distance_store)
     plt.title('distance difference')
@@ -238,7 +228,7 @@ def test_mpc():
     # plot orientation difference
     orientation_store = np.zeros(mpc.nTraj)
     for i in range(mpc.nTraj):
-        X_d = SE2(ref_traj[:, i])
+        X_d = SE2(ref_SE2[:, i])
         X = SE2(state_store[0, i], state_store[1, i], state_store[2, i])
         X_d_inv_X = SO2(X_d.angle()).between(SO2(X.angle()))
         orientation_store[i] = scipy.linalg.norm(X_d_inv_X.log().coeffs())
@@ -249,12 +239,14 @@ def test_mpc():
 
     plt.show()
 
+
 def wrap_angle(angle):
     if angle > np.pi:
         angle -= 2 * np.pi
     elif angle < -np.pi:
         angle += 2 * np.pi
     return angle
+
 
 if __name__ == '__main__':
     # test_generate_ref_traj()

@@ -35,8 +35,8 @@ class ErrorDynamicsMPC:
         self.nControl = 2  # velocity control (v, w) R^2
         self.nTwist = 3  # twist (se2 vee) R^3
         self.nTraj = None
-        self.ref_traj = None
-        self.ref_v = None
+        self.ref_SE2 = None
+        self.ref_twist = None
         self.dt = None
         self.Q = None
         self.R = None
@@ -47,8 +47,8 @@ class ErrorDynamicsMPC:
 
     def set_ref_traj(self, traj_config):
         traj_generator = TrajGenerator(traj_config)
-        self.ref_traj, self.ref_v, self.dt = traj_generator.get_traj()
-        self.nTraj = self.ref_traj.shape[1]
+        self.ref_SE2, self.ref_twist, self.dt = traj_generator.get_traj()
+        self.nTraj = self.ref_SE2.shape[1]
 
     def setup_solver(self, Q=10, R=1, N=10):
         self.Q = Q * np.diag(np.ones(self.nState))
@@ -63,12 +63,12 @@ class ErrorDynamicsMPC:
         return:
             u: control input (v, w)
         """
-        if self.ref_traj is None:
+        if self.ref_SE2 is None:
             raise ValueError('Reference trajectory is not set up yet!')
 
         # get reference state and twist
         k = math.ceil(t / self.dt)
-        curr_ref_SE2_coeffs = self.ref_traj[:, k]
+        curr_ref_SE2_coeffs = self.ref_SE2[:, k]
 
         # get x init by calculating log between current state and reference state
         x_init = SE2(curr_ref_SE2_coeffs).between(SE2(SE2_coeffs)).log().coeffs()
@@ -90,18 +90,21 @@ class ErrorDynamicsMPC:
         # x_next = A * x + B * u + h
         for i in range(N):
             index = min(k + i, self.nTraj - 1)
-            u_d = self.ref_v[:, index]  # desir
+            u_d = self.ref_twist[:, index]  # desir
             A = -SE2Tangent(u_d).smallAdj()
             B = np.eye(self.nTwist)
             h = -u_d
-            x_next = x_var[:, i] + dt * (A @ x_var[:, i] + B @ self._to_local_vel(u_var[:, i]) + h)
+            x_next = x_var[:, i] + dt * (A @ x_var[:, i] + B @ self._to_local_twist(u_var[:, i]) + h)
             opti.subject_to(x_var[:, i + 1] == x_next)
 
         # cost function
         cost = 0
         for i in range(N):
+            index = min(k + i, self.nTraj - 1)
+            twist_ref = self.ref_twist[:, index]
+            u_d = self._to_vel_cmd(twist_ref)
             cost += ca.mtimes([x_var[:, i].T, Q, x_var[:, i]]) + ca.mtimes(
-                [u_var[:, i].T, R, u_var[:, i]])
+                [(u_var[:, i]-u_d).T, R, (u_var[:, i]-u_d)])
 
         cost += ca.mtimes([x_var[:, -1].T, 100 * Q, x_var[:, -1]])
         opti.minimize(cost)
@@ -112,8 +115,11 @@ class ErrorDynamicsMPC:
 
         return u_sol[:, 0]
 
-    def _to_local_vel(self, vel_cmd):
+    def _to_local_twist(self, vel_cmd):
         return ca.vertcat(vel_cmd[0], 0, vel_cmd[1])
+
+    def _to_vel_cmd(self, local_vel):
+        return ca.vertcat(local_vel[0], local_vel[2])
 
 
 def test_mpc():
@@ -125,7 +131,7 @@ def test_mpc():
                              'dt': 0.05}}
 
     mpc = ErrorDynamicsMPC(traj_config)
-    ref_traj = mpc.ref_traj
+    ref_SE2 = mpc.ref_SE2
     init_state = np.array([0.5, 0.5, 0])
     init_state = SE2Tangent(init_state).exp().coeffs()
     t = 0
@@ -137,7 +143,7 @@ def test_mpc():
     for i in range(mpc.nTraj - 1):
         state = state_store[:, i]
         xi = mpc.solve(state, t)
-        xi = mpc._to_local_vel(xi)
+        xi = mpc._to_local_twist(xi)
         X = SE2(state)  # SE2 state
         X = X + SE2Tangent(xi * mpc.dt)
         state_store[:, i + 1] = X.coeffs()
@@ -145,14 +151,14 @@ def test_mpc():
 
     # plot
     plt.figure()
-    plt.plot(ref_traj[0, :], ref_traj[1, :], 'r')
+    plt.plot(ref_SE2[0, :], ref_SE2[1, :], 'r')
     plt.plot(state_store[0, :], state_store[1, :], 'b')
     plt.legend(['reference', 'trajectory'])
 
     plt.show()
 
     # plot distance difference
-    distance_store = np.linalg.norm(state_store[0:2, :] - ref_traj[0:2, :], axis=0)
+    distance_store = np.linalg.norm(state_store[0:2, :] - ref_SE2[0:2, :], axis=0)
     plt.figure()
     plt.plot(distance_store)
     plt.title('distance difference')
@@ -161,7 +167,7 @@ def test_mpc():
     # plot orientation difference
     orientation_store = np.zeros(mpc.nTraj)
     for i in range(mpc.nTraj):
-        X_d = SE2(ref_traj[:, i])
+        X_d = SE2(ref_SE2[:, i])
         X = SE2(state_store[:, i])
         X_d_inv_X = SO2(X_d.angle()).between(SO2(X.angle()))
         orientation_store[i] = scipy.linalg.norm(X_d_inv_X.log().coeffs())
