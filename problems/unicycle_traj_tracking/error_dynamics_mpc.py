@@ -7,7 +7,7 @@ import casadi as ca
 import math
 from ref_traj_generator import TrajGenerator
 from utils.enum_class import TrajType
-
+from naive_mpc import NaiveMPC
 """
 this ErrorDynamicsMPC class is used to solve tracking problem of uni-cycle model
 using MPC. The error dynamics is defined as follows:
@@ -50,7 +50,7 @@ class ErrorDynamicsMPC:
         self.ref_SE2, self.ref_twist, self.dt = traj_generator.get_traj()
         self.nTraj = self.ref_SE2.shape[1]
 
-    def setup_solver(self, Q=10, R=1, N=10):
+    def setup_solver(self, Q=50, R=1, N=10):
         self.Q = Q * np.diag(np.ones(self.nState))
         self.R = R * np.diag(np.ones(self.nControl))
         self.N = N
@@ -138,15 +138,18 @@ def test_mpc():
     # contrainer to store state
     state_store = np.zeros((4, mpc.nTraj))
     state_store[:, 0] = init_state
-
+    vel_cmd_store = np.zeros((2, mpc.nTraj))
     # start simulation
     for i in range(mpc.nTraj - 1):
         state = state_store[:, i]
+
         vel_cmd = mpc.solve(state, t)
+        vel_cmd_store[:, i] = vel_cmd
         xi = mpc._to_local_twist(vel_cmd)
         X = SE2(state)  # SE2 state
         X = X + SE2Tangent(xi * mpc.dt)
         state_store[:, i + 1] = X.coeffs()
+
         t += mpc.dt
 
     # plot
@@ -178,12 +181,27 @@ def test_mpc():
 
     plt.show()
 
+    # plot velocity command
+    plt.figure()
+    plt.plot(vel_cmd_store[0, :-1], 'r')
+    plt.plot(vel_cmd_store[1, :-1], 'b')
+    plt.legend(['linear', 'angular'])
+    plt.title('velocity command')
+    plt.show()
+
+
 def test_pose_regulation():
-    init_state = np.array([5, 5, 0])
-    config = {'type': TrajType.POSE_REGULATION,
-              'param': {'end_state': np.array([0, 0,- np.pi / 2]),
-                        'dt': 0.05,
-                        'nTraj': 670}}
+    # init_state = np.array([5, 5, 0])
+    # config = {'type': TrajType.POSE_REGULATION,
+    #           'param': {'end_state': np.array([0, 0,- np.pi / 2]),
+    #                     'dt': 0.05,
+    #                     'nTraj': 670}}
+    # traj_generator = TrajGenerator(config)
+    init_state = np.array([1, 1, 0])
+    config = {'type': TrajType.TIME_VARYING,
+              'param': {'start_state': np.array([1, 1, 0]),
+                        'dt': 0.02,
+                        'nTraj': 200}}
     traj_generator = TrajGenerator(config)
     ref_SE2, ref_twist, dt = traj_generator.get_traj()
     mpc = ErrorDynamicsMPC(config)
@@ -199,7 +217,9 @@ def test_pose_regulation():
         curr_SE2 = store_SE2[:, i]
         curr_ref_SE2 = ref_SE2[:, i]
         curr_ref_twist = ref_twist[:, i]
-        curr_vel_cmd = mpc.solve(curr_SE2,t)
+        X = SE2(curr_SE2)
+        # curr_vel_cmd = mpc.solve(np.array([X.x(),X.y(),X.angle()]),t)
+        curr_vel_cmd = mpc.solve(curr_SE2, t)
         curr_twist = mpc._to_local_twist(curr_vel_cmd)
         store_twist[:, i] = curr_twist.full().flatten()
         # next SE2 state
@@ -243,4 +263,4 @@ def test_pose_regulation():
 
 if __name__ == '__main__':
     # test_generate_ref_traj()
-    test_pose_regulation()
+    test_mpc()
