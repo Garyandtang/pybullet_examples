@@ -9,7 +9,7 @@ from utils.enum_class import WMRType, TrajType
 from ref_traj_generator import TrajGenerator
 
 class FBLinearizationController:
-    def __init__(self, Kp = np.array([1, 1, 1])):
+    def __init__(self, Kp = np.array([1, 1, 2])):
         k1, k2, k3 = Kp
         self.K = np.array([[-k1, 0, 0],
                             [0, -k2, -k3]])

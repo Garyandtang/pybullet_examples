@@ -1,3 +1,4 @@
+import numpy as np
 import scipy.linalg
 import matplotlib.pyplot as plt
 from manifpy import SE2, SE2Tangent, SO2, SO2Tangent
@@ -107,8 +108,8 @@ class NaiveMPC:
         self.set_solver()
         self.cost_func = self.model.cost_func
 
-    def set_solver(self, q=[15, 15, 6], R=0.1, N=10):
-        self.Q = 5*np.diag(q)
+    def set_solver(self, q=[50, 50, 5], R=0.01, N=10):
+        self.Q = np.diag(q)
         self.R = R * np.eye(self.model.nu)
         self.N = N
 
@@ -165,6 +166,7 @@ class NaiveMPC:
             index = min(k + i, self.nTraj - 1)
             x_target = self.ref_state[:, index]
             u_target = self.ref_control[:, index]
+            # u_target = np.zeros((2, 1))
             cost += self.cost_func(x_var[:, i], x_target, u_var[:, i], u_target, self.Q, self.R)
 
         # cost
@@ -174,10 +176,10 @@ class NaiveMPC:
         u = sol.value(u_var[:, 0])
         return u
 
-    def _to_local_twist(self, vel_cmd):
+    def vel_cmd_to_local_twist(self, vel_cmd):
         return ca.vertcat(vel_cmd[0], 0, vel_cmd[1])
 
-    def _to_vel_cmd(self, local_vel):
+    def local_twist_to_vel_cmd(self, local_vel):
         return ca.vertcat(local_vel[0], local_vel[2])
 
 
@@ -206,7 +208,7 @@ def test_mpc():
         curr_SE2 = SE2_store[:, i]
         state = np.array([curr_SE2[0], curr_SE2[1], SE2(curr_SE2).angle()])
         vel_cmd = mpc.solve(state, t)
-        xi = mpc._to_local_twist(vel_cmd)
+        xi = mpc.vel_cmd_to_local_twist(vel_cmd)
         twist_store[:, i] = xi.full().flatten()
         X = SE2(curr_SE2)
         X = X + SE2Tangent(xi*mpc.dt)

@@ -50,7 +50,7 @@ class ErrorDynamicsMPC:
         self.ref_SE2, self.ref_twist, self.dt = traj_generator.get_traj()
         self.nTraj = self.ref_SE2.shape[1]
 
-    def setup_solver(self, Q=50, R=1, N=10):
+    def setup_solver(self, Q=50, R=0.1, N=10):
         self.Q = Q * np.diag(np.ones(self.nState))
         self.R = R * np.diag(np.ones(self.nControl))
         self.N = N
@@ -94,7 +94,7 @@ class ErrorDynamicsMPC:
             A = -SE2Tangent(u_d).smallAdj()
             B = np.eye(self.nTwist)
             h = -u_d
-            x_next = x_var[:, i] + dt * (A @ x_var[:, i] + B @ self._to_local_twist(u_var[:, i]) + h)
+            x_next = x_var[:, i] + dt * (A @ x_var[:, i] + B @ self.vel_cmd_to_local_twist(u_var[:, i]) + h)
             opti.subject_to(x_var[:, i + 1] == x_next)
 
         # cost function
@@ -102,7 +102,7 @@ class ErrorDynamicsMPC:
         for i in range(N):
             index = min(k + i, self.nTraj - 1)
             twist_ref = self.ref_twist[:, index]
-            u_d = self._to_vel_cmd(twist_ref)
+            u_d = self.local_twist_to_vel_cmd(twist_ref)
             cost += ca.mtimes([x_var[:, i].T, Q, x_var[:, i]]) + ca.mtimes(
                 [(u_var[:, i]-u_d).T, R, (u_var[:, i]-u_d)])
 
@@ -115,10 +115,10 @@ class ErrorDynamicsMPC:
 
         return u_sol[:, 0]
 
-    def _to_local_twist(self, vel_cmd):
+    def vel_cmd_to_local_twist(self, vel_cmd):
         return ca.vertcat(vel_cmd[0], 0, vel_cmd[1])
 
-    def _to_vel_cmd(self, local_vel):
+    def local_twist_to_vel_cmd(self, local_vel):
         return ca.vertcat(local_vel[0], local_vel[2])
 
 
@@ -145,7 +145,7 @@ def test_mpc():
 
         vel_cmd = mpc.solve(state, t)
         vel_cmd_store[:, i] = vel_cmd
-        xi = mpc._to_local_twist(vel_cmd)
+        xi = mpc.vel_cmd_to_local_twist(vel_cmd)
         X = SE2(state)  # SE2 state
         X = X + SE2Tangent(xi * mpc.dt)
         state_store[:, i + 1] = X.coeffs()
