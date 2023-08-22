@@ -27,6 +27,8 @@ def mpc_simulation(traj_generator, controller, init_state):
 
     t = 0
     for i in range(nTraj - 1):
+        if (i == 11):
+            print('debug')
         curr_SE2 = store_SE2[:, i]
         curr_vel_cmd = controller.solve(curr_SE2, t)
         curr_twist = controller.vel_cmd_to_local_twist(curr_vel_cmd).full().flatten()
@@ -100,20 +102,32 @@ def feedback_linearization_simulation(traj_generator, controller, init_state):
 
 def main():
     # set up init state and reference trajectory
-    init_state = np.array([-0.1, -0.1, np.pi / 6])
+    init_state = np.array([-0.5, -0.5, np.pi / 6])
     traj_config = {'type': TrajType.CIRCLE,
                    'param': {'start_state': np.array([0, 0, 0]),
-                             'linear_vel': 0.5,
+                             'linear_vel': 0.4,
                              'angular_vel': 0.5,
-                             'nTraj': 670,
-                             'dt': 0.02}}
+                             'nTraj': 600,
+                             'dt': 0.01}}
+
+    init_state = np.array([0.04, 0.04, 0])
+    traj_config = {'type': TrajType.TIME_VARYING,
+              'param': {'start_state': np.array([0, 0, 0]),
+                        'dt': 0.02,
+                        'nTraj': 300}}
     traj_generator = TrajGenerator(traj_config)
     ref_SE2, ref_twist, dt = traj_generator.get_traj()
+
+    model_config = {'cost_type': CostType.POSITION,
+                    'dynamics_type': DynamicsType.EULER_FIRST_ORDER}
+
     fb_linearization_controller = FBLinearizationController()
     edmpc = ErrorDynamicsMPC(traj_config)
-    model_config = {'cost_type': CostType.POSITION_EULER,
-                    'dynamics_type': DynamicsType.EULER_FIRST_ORDER}
+
     nmpc = NaiveMPC(traj_config, model_config)
+
+    edmpc.set_control_bound(-10,10,-100,100)
+    nmpc.set_control_bound(-10,10,-100,100)
 
     SE2_store_ed, twist_store_ed = mpc_simulation(traj_generator, edmpc, init_state)
     SE2_store_nmpc, twist_store_nmpc = nmpc_simulation(traj_generator, nmpc, init_state)
@@ -169,6 +183,24 @@ def main():
     plt.legend()
     plt.title('orientation error')
     plt.show()
+
+    # plot the twist
+    plt.figure()
+    plt.plot(twist_store_ed[0, :], label='edmpc')
+    plt.plot(twist_store_nmpc[0, :], label='nmpc')
+    plt.plot(twist_store_fb[0, :], label='fb')
+    plt.legend()
+    plt.title('linear velocity')
+    plt.show()
+
+    plt.figure()
+    plt.plot(twist_store_ed[2, :], label='edmpc')
+    plt.plot(twist_store_nmpc[2, :], label='nmpc')
+    plt.plot(twist_store_fb[2, :], label='fb')
+    plt.legend()
+    plt.title('angular velocity')
+    plt.show()
+    print('done')
 
 
 if __name__ == '__main__':

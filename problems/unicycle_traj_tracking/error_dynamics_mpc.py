@@ -44,16 +44,23 @@ class ErrorDynamicsMPC:
         self.setup_solver()
         self.set_ref_traj(ref_traj_config)
         self.setup_solver()
+        self.set_control_bound()
 
     def set_ref_traj(self, traj_config):
         traj_generator = TrajGenerator(traj_config)
         self.ref_SE2, self.ref_twist, self.dt = traj_generator.get_traj()
         self.nTraj = self.ref_SE2.shape[1]
 
-    def setup_solver(self, Q=50, R=0.1, N=10):
+    def setup_solver(self, Q=1000, R=0.1, N=10):
         self.Q = Q * np.diag(np.ones(self.nState))
         self.R = R * np.diag(np.ones(self.nControl))
         self.N = N
+
+    def set_control_bound(self, v_min = -1.5, v_max= 1.5, w_min = -np.pi, w_max= np.pi):
+        self.v_min = v_min
+        self.v_max = v_max
+        self.w_min = w_min
+        self.w_max = w_max
 
     def solve(self, SE2_coeffs, t):
         """
@@ -67,7 +74,7 @@ class ErrorDynamicsMPC:
             raise ValueError('Reference trajectory is not set up yet!')
 
         # get reference state and twist
-        k = math.ceil(t / self.dt)
+        k = round(t / self.dt)
         curr_ref_SE2_coeffs = self.ref_SE2[:, k]
 
         # get x init by calculating log between current state and reference state
@@ -106,7 +113,16 @@ class ErrorDynamicsMPC:
             cost += ca.mtimes([x_var[:, i].T, Q, x_var[:, i]]) + ca.mtimes(
                 [(u_var[:, i]-u_d).T, R, (u_var[:, i]-u_d)])
 
-        cost += ca.mtimes([x_var[:, -1].T, 100 * Q, x_var[:, -1]])
+        cost += ca.mtimes([x_var[:, N].T, 100*Q, x_var[:, N]])
+
+        # control bound
+        opti.subject_to(u_var[0, :] >= self.v_min)
+        opti.subject_to(u_var[0, :] <= self.v_max)
+        opti.subject_to(u_var[1, :] >= self.w_min)
+        opti.subject_to(u_var[1, :] <= self.w_max)
+
+
+
         opti.minimize(cost)
         opti.solver('ipopt')
         sol = opti.solve()

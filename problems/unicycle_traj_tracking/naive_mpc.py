@@ -106,9 +106,10 @@ class NaiveMPC:
         self.nControl = self.model.nu  # 2 (v, w)
         self.set_ref_traj(ref_traj_config)
         self.set_solver()
+        self.set_control_bound()
         self.cost_func = self.model.cost_func
 
-    def set_solver(self, q=[50, 50, 5], R=0.01, N=10):
+    def set_solver(self, q=[5000, 5000, 500], R=1, N=10):
         self.Q = np.diag(q)
         self.R = R * np.eye(self.model.nu)
         self.N = N
@@ -131,6 +132,12 @@ class NaiveMPC:
 
         self.nTraj = self.ref_state.shape[1]
 
+    def set_control_bound(self, v_min = -1.5, v_max= 1.5, w_min = -np.pi, w_max= np.pi):
+        self.v_min = v_min
+        self.v_max = v_max
+        self.w_min = w_min
+        self.w_max = w_max
+
     def solve(self, state, t):
         """
         state: [x, y, theta]
@@ -141,7 +148,7 @@ class NaiveMPC:
 
         nu = self.nControl
         nx = self.nState
-        k = math.ceil(t / self.dt)
+        k = round(t / self.dt)
         N = self.N
         index_end = min(k + N, self.nTraj - 1)
         X = self.ref_state[:, index_end]
@@ -169,7 +176,14 @@ class NaiveMPC:
             # u_target = np.zeros((2, 1))
             cost += self.cost_func(x_var[:, i], x_target, u_var[:, i], u_target, self.Q, self.R)
 
-        # cost
+
+        # control bound
+        opti.subject_to(u_var[0, :] >= self.v_min)
+        opti.subject_to(u_var[0, :] <= self.v_max)
+        opti.subject_to(u_var[1, :] >= self.w_min)
+        opti.subject_to(u_var[1, :] <= self.w_max)
+
+
         opti.minimize(cost)
         opti.solver('ipopt')
         sol = opti.solve()
@@ -214,6 +228,8 @@ def test_mpc():
         X = X + SE2Tangent(xi*mpc.dt)
         SE2_store[:, i + 1] = X.coeffs()
         t += mpc.dt
+
+
 
     # plot
     plt.figure()
