@@ -108,13 +108,13 @@ def main():
                              'linear_vel': 0.4,
                              'angular_vel': 0.5,
                              'nTraj': 600,
-                             'dt': 0.01}}
+                             'dt': 0.02}}
 
-    init_state = np.array([0.04, 0.04, 0])
-    traj_config = {'type': TrajType.TIME_VARYING,
-              'param': {'start_state': np.array([0, 0, 0]),
-                        'dt': 0.02,
-                        'nTraj': 300}}
+    # init_state = np.array([0.04, 0.04, 0])
+    # traj_config = {'type': TrajType.TIME_VARYING,
+    #           'param': {'start_state': np.array([0, 0, 0]),
+    #                     'dt': 0.02,
+    #                     'nTraj': 300}}
     traj_generator = TrajGenerator(traj_config)
     ref_SE2, ref_twist, dt = traj_generator.get_traj()
 
