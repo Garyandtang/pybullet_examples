@@ -107,14 +107,21 @@ def main():
                    'param': {'start_state': np.array([0, 0, 0]),
                              'linear_vel': 0.4,
                              'angular_vel': 0.5,
-                             'nTraj': 600,
+                             'nTraj': 700,
                              'dt': 0.02}}
 
-    # init_state = np.array([0.04, 0.04, 0])
-    # traj_config = {'type': TrajType.TIME_VARYING,
-    #           'param': {'start_state': np.array([0, 0, 0]),
-    #                     'dt': 0.02,
-    #                     'nTraj': 300}}
+    init_state = np.array([0.2, 0.3, np.pi/4])
+    traj_config = {'type': TrajType.TIME_VARYING,
+              'param': {'start_state': np.array([0, 0, 0]),
+                        'dt': 0.02,
+                        'nTraj': 300}}
+
+    # figure of eight
+    traj_config = {'type': TrajType.EIGHT,
+              'param': {'start_state': np.array([0, 0, 0]),
+                        'dt': 0.05,
+                        'scale': 1,
+                        'nTraj': 300}}
     traj_generator = TrajGenerator(traj_config)
     ref_SE2, ref_twist, dt = traj_generator.get_traj()
 
@@ -126,8 +133,10 @@ def main():
 
     nmpc = NaiveMPC(traj_config, model_config)
 
-    edmpc.set_control_bound(-10,10,-100,100)
-    nmpc.set_control_bound(-10,10,-100,100)
+    v_max = 1
+    w_max = 4
+    edmpc.set_control_bound(-v_max,v_max,-w_max,w_max)
+    nmpc.set_control_bound(-v_max,v_max,-w_max,w_max)
 
     SE2_store_ed, twist_store_ed = mpc_simulation(traj_generator, edmpc, init_state)
     SE2_store_nmpc, twist_store_nmpc = nmpc_simulation(traj_generator, nmpc, init_state)

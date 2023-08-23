@@ -46,6 +46,38 @@ class TrajGenerator:
             self.ref_SE2[:, i + 1] = X.coeffs()
             self.ref_twist[:, i + 1] = v
 
+    def generate_eight_traj(self, config):
+        self.dt = config.get('dt', 0.05)
+        T = round(1/self.dt)
+        self.nTraj = config.get('nTraj', 170)
+        init_state = config.get('start_state', np.array([0, 0, 0]))
+        scale = config.get('scale', 1)
+        self.ref_SE2 = np.zeros((self.nSE2, self.nTraj))  # [x, y, cos(theta), sin(theta)]
+        self.ref_twist = np.zeros((self.nTwist, self.nTraj))  # [vx, vy, w]
+
+        self.ref_SE2[:, 0] = SE2(init_state[0], init_state[1], init_state[2]).coeffs()
+        t = 0.0
+        for i in range(self.nTraj - 1):  # 0 to nTraj-2
+            xdot = 1.0 * np.cos(4.0 * np.pi * t / T) * 4.0 * np.pi / T
+            ydot = 1.0 * np.cos(2.0 * np.pi * t / T) * 2.0 * np.pi / T
+            v = np.sqrt(xdot ** 2 + ydot ** 2)
+            # calculate angular velocity
+            xdotdot = -1.0 * np.sin(4 * np.pi * t / T) * (4.0 * np.pi / T) ** 2
+            ydotdot = -1.0 * np.sin(2 * np.pi * t / T) * (2.0 * np.pi / T) ** 2
+            w = (ydotdot * xdot - xdotdot * ydot) / (xdot ** 2 + ydot ** 2)
+
+            twist = np.array([v, 0, w])
+            self.ref_twist[:, i] = twist
+            X = SE2(self.ref_SE2[:, i])
+            X = X + SE2Tangent(twist * self.dt)
+            self.ref_SE2[:, i + 1] = X.coeffs()
+            # increment time
+            if t == T:
+                t = 0.0
+            else:
+                t = t + self.dt
+        self.ref_twist[:, self.nTraj - 1] = self.ref_twist[:, self.nTraj - 2]
+
     def generate_pose_regulation_traj(self, config):
         # example of pose regulation config
         # config = {'type': TrajType.POSE_REGULATION,
@@ -85,8 +117,8 @@ class TrajGenerator:
             self.ref_SE2[:, i + 1] = X.coeffs()
             self.ref_twist[:, i + 1] = self.vel_cmd_to_local_vel(vel_cmd)
 
-    def generate_eight_traj(self, config):
-        raise NotImplementedError
+    # def generate_eight_traj(self, config):
+    #     raise NotImplementedError
 
     def get_traj(self):
         return self.ref_SE2, self.ref_twist, self.dt
@@ -139,8 +171,21 @@ def test_pose_regulation_traj_generator():
 def test_time_varying_traj_generator():
     config = {'type': TrajType.TIME_VARYING,
               'param': {'start_state': np.array([0, 0, 0]),
+                        'dt': 0.1,
+                        'nTraj': 3000}}
+    traj_generator = TrajGenerator(config)
+    ref_SE2, ref_twist, dt = traj_generator.get_traj()
+    plt.figure(1)
+    plt.plot(ref_SE2[0, :], ref_SE2[1, :], 'b')
+    plt.title('Reference Trajectory')
+    plt.show()
+
+def test_generate_eight_traj():
+    config = {'type': TrajType.EIGHT,
+              'param': {'start_state': np.array([1, 1, 0]),
                         'dt': 0.02,
-                        'nTraj': 300}}
+                        'scale': 1,
+                        'nTraj': 3000}}
     traj_generator = TrajGenerator(config)
     ref_SE2, ref_twist, dt = traj_generator.get_traj()
     plt.figure(1)
@@ -150,4 +195,4 @@ def test_time_varying_traj_generator():
 
 
 if __name__ == '__main__':
-    test_time_varying_traj_generator()
+    test_generate_eight_traj()
