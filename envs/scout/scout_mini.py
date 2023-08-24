@@ -53,8 +53,8 @@ class ScoutMini():
         self.nState = 3
         self.nControl = 2
         # turtlebot model parameters
-        self.SCOUT_WHEELBASE = 0.498
-        self.SCOUT_WHEEL_RADIUS = 0.16459
+        self.SCOUT_WHEELBASE = 0.55 *2
+        self.SCOUT_WHEEL_RADIUS = 0.175 /2
         self.SCOUT_HEIGHT = 0.181368485
         if init_state is None:
             self.init_state = np.array([0, 0, self.SCOUT_HEIGHT])
@@ -88,17 +88,22 @@ class ScoutMini():
         self.state = np.array([pos[0], pos[1], euler[2]])
         return self.state
 
-    def get_twist(self, action):
-        NotImplementedError
+    def get_twist(self):
+        # [v, w]
+        vel = p.getBaseVelocity(self.scout, physicsClientId=self.PYB_CLIENT)
+        self.twist = np.array([vel[0][0], vel[1][2]])
+        return self.twist
 
     def vel_cmd_to_action(self, vel_cmd):
         # vel_cmd: [v, w] in m/s linear and angular velocity
         # action: [v_rear_r, v_front_r, v_rear_l, v_rear_r] in m/s left and right wheel velocity
         # the dir of left and right wheel is opposite
-        v = vel_cmd[0]
+        v = -vel_cmd[0]
         w = vel_cmd[1]
-        left_side_vel = v - w * self.SCOUT_WHEELBASE / self.SCOUT_WHEEL_RADIUS
-        right_side_vel = v + w * self.SCOUT_WHEELBASE / self.SCOUT_WHEEL_RADIUS
+        left_side_vel = v - w * self.SCOUT_WHEELBASE / 2
+        right_side_vel = v + w * self.SCOUT_WHEELBASE / 2
+        left_side_vel = left_side_vel / self.SCOUT_WHEEL_RADIUS
+        right_side_vel = right_side_vel / self.SCOUT_WHEEL_RADIUS
         action = np.array([right_side_vel, right_side_vel, -left_side_vel, -left_side_vel])
         return action
 
@@ -122,7 +127,7 @@ class ScoutMini():
             p.stepSimulation(physicsClientId=self.PYB_CLIENT)
 
         self.state = self.get_state()
-
+        self.draw_point(self.state)
         return self.state, None, None, None
 
     def _denormalize_action(self, action):
@@ -138,6 +143,20 @@ class ScoutMini():
     def _set_action_space(self, state):
         raise NotImplementedError
 
+    def draw_ref_traj(self, ref_SE2):
+        # ref_se2: [x, y, cos(theta), sin(theta)]
+        ref_traj = np.zeros((3, ref_SE2.shape[1]))
+        ref_traj[0:2, :] = ref_SE2[0:2, :]
+        ref_traj[2, :] = 0.1
+        for i in range(ref_SE2.shape[1] - 1):
+            p1 = ref_traj[:, i]
+            p2 = ref_traj[:, i+1]
+            p.addUserDebugLine(p1, p2, [1, 0, 0], 2, physicsClientId=self.PYB_CLIENT)
+        return ref_traj
+
+    def draw_point(self, point):
+        p.addUserDebugPoints(
+            [[point[0], point[1], 0.12]], [[0.1, 0, 0]], pointSize=3, lifeTime=0.5)
 
 if __name__ == '__main__':
     key_word = {'gui': False}

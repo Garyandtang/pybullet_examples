@@ -54,7 +54,7 @@ class Turtlebot():
         self.nControl = 2
         # turtlebot model parameters
         self.length = 0.23  # length of the turtlebot
-        self.width = 0.025  # width of the wheel of the turtlebot
+        self.width = 0.036  # width of the wheel of the turtlebot
         if init_state is None:
             self.init_state = np.array([0, 0, 0])
         elif isinstance(init_state, np.ndarray):
@@ -87,7 +87,13 @@ class Turtlebot():
         self.state = np.array([pos[0], pos[1], euler[2]])
         return self.state
 
-    def get_twist(self, action):
+    def get_twist(self):
+        # [v, w]
+        vel = p.getBaseVelocity(self.turtlebot, physicsClientId=self.PYB_CLIENT)
+        self.twist = np.array([vel[0][0], vel[1][2]])
+        return self.twist
+
+    def calc_twist(self, action):
         # action: [v_l, v_r] in m/s left and right wheel velocity
         # twist: [v, w] in m/s linear and angular velocity
         v_l = action[0]
@@ -104,6 +110,8 @@ class Turtlebot():
         w = vel_cmd[1]
         v_l = v - self.length * w / 2
         v_r = v + self.length * w / 2
+        v_l = v_l / self.width
+        v_r = v_r / self.width
         action = np.array([v_l, v_r])
         return action
 
@@ -120,8 +128,10 @@ class Turtlebot():
                                     physicsClientId=self.PYB_CLIENT)
             p.stepSimulation(physicsClientId=self.PYB_CLIENT)
 
+
         self.state = self.get_state()
 
+        self.draw_point(self.state)
         return self.state, None, None, None
 
     def _denormalize_action(self, action):
@@ -131,12 +141,26 @@ class Turtlebot():
         """
         return action
 
+    def draw_point(self, point):
+        p.addUserDebugPoints(
+            [[point[0], point[1], 0.12]], [[0.1, 0, 0]], pointSize=3, lifeTime=0.5)
+
     def _preprocess_control(self, action):
         raise NotImplementedError
 
     def _set_action_space(self, state):
         raise NotImplementedError
 
+    def draw_ref_traj(self, ref_SE2):
+        # ref_se2: [x, y, cos(theta), sin(theta)]
+        ref_traj = np.zeros((3, ref_SE2.shape[1]))
+        ref_traj[0:2, :] = ref_SE2[0:2, :]
+        ref_traj[2, :] = 0.1
+        for i in range(ref_SE2.shape[1] -1):
+            p1 = ref_traj[:, i]
+            p2 = ref_traj[:, i+1]
+            p.addUserDebugLine(p1, p2, [1, 0, 0], 2, physicsClientId=self.PYB_CLIENT)
+        return ref_traj
 
 if __name__ == '__main__':
     key_word = {'gui': False}

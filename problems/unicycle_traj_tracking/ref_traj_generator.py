@@ -58,12 +58,12 @@ class TrajGenerator:
         self.ref_SE2[:, 0] = SE2(init_state[0], init_state[1], init_state[2]).coeffs()
         t = 0.0
         for i in range(self.nTraj - 1):  # 0 to nTraj-2
-            xdot = 1.0 * np.cos(4.0 * np.pi * t / T) * 4.0 * np.pi / T
-            ydot = 1.0 * np.cos(2.0 * np.pi * t / T) * 2.0 * np.pi / T
+            xdot = scale * np.cos(4.0 * np.pi * t / T) * 4.0 * np.pi / T
+            ydot = scale * np.cos(2.0 * np.pi * t / T) * 2.0 * np.pi / T
             v = np.sqrt(xdot ** 2 + ydot ** 2)
             # calculate angular velocity
-            xdotdot = -1.0 * np.sin(4 * np.pi * t / T) * (4.0 * np.pi / T) ** 2
-            ydotdot = -1.0 * np.sin(2 * np.pi * t / T) * (2.0 * np.pi / T) ** 2
+            xdotdot = -scale * np.sin(4 * np.pi * t / T) * (4.0 * np.pi / T) ** 2
+            ydotdot = -scale * np.sin(2 * np.pi * t / T) * (2.0 * np.pi / T) ** 2
             w = (ydotdot * xdot - xdotdot * ydot) / (xdot ** 2 + ydot ** 2)
 
             twist = np.array([v, 0, w])
