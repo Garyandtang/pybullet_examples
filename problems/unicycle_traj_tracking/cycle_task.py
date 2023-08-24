@@ -1,5 +1,6 @@
 import time
 from envs.turtlebot.turtlebot import Turtlebot
+from envs.scout.scout_mini import ScoutMini
 import numpy as np
 from utils.enum_class import CostType, DynamicsType, TrajType
 from naive_mpc import NaiveMPC
@@ -7,7 +8,7 @@ from naive_mpc import NaiveMPC
 def main():
 
     # set env
-    env = Turtlebot(gui=True)
+    env = ScoutMini(gui=True)
 
     # set solver
     traj_config = {'type': TrajType.CIRCLE,
