@@ -132,7 +132,13 @@ class NaiveMPC:
 
         self.nTraj = self.ref_state.shape[1]
 
-    def set_control_bound(self, v_min = -1.5, v_max= 1.5, w_min = -np.pi, w_max= np.pi):
+    def get_curr_ref(self,t):
+        k = round(t / self.dt)
+        curr_ref_SE2_coeffs = self.ref_state[:, k]
+        curr_ref_twist_coeffs = self.ref_control[:, k]
+        return curr_ref_SE2_coeffs, curr_ref_twist_coeffs
+
+    def set_control_bound(self, v_min = -100, v_max= 100, w_min = -100, w_max= 100):
         self.v_min = v_min
         self.v_max = v_max
         self.w_min = w_min
@@ -185,7 +191,10 @@ class NaiveMPC:
 
 
         opti.minimize(cost)
-        opti.solver('ipopt')
+        opts_setting = {'ipopt.max_iter': 1000, 'ipopt.print_level': 0, 'print_time': 0, 'ipopt.acceptable_tol': 1e-8,
+                        'ipopt.acceptable_obj_change_tol': 1e-6}
+
+        opti.solver('ipopt', opts_setting)
         sol = opti.solve()
         u = sol.value(u_var[:, 0])
         return u

@@ -19,7 +19,7 @@ from utils.enum_class import CostType, DynamicsType
 
 class Turtlebot():
     NAME = 'turtlebot'
-    URDF_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'assets','urdf', 'scout_mini.urdf')
+    URDF_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'assets', 'turtlebot.urdf')
 
     def __init__(self,
                  init_state: np.ndarray = None,

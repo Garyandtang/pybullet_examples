@@ -56,11 +56,18 @@ class ErrorDynamicsMPC:
         self.R = R * np.diag(np.ones(self.nControl))
         self.N = N
 
-    def set_control_bound(self, v_min = -1.5, v_max= 1.5, w_min = -np.pi, w_max= np.pi):
+    def set_control_bound(self, v_min = -100, v_max= 100, w_min = -100, w_max= 100):
         self.v_min = v_min
         self.v_max = v_max
         self.w_min = w_min
         self.w_max = w_max
+
+
+    def get_curr_ref(self,t):
+        k = round(t / self.dt)
+        curr_ref_SE2_coeffs = self.ref_SE2[:, k]
+        curr_ref_twist_coeffs = self.ref_twist[:, k]
+        return curr_ref_SE2_coeffs, curr_ref_twist_coeffs
 
     def solve(self, SE2_coeffs, t):
         """
@@ -122,9 +129,10 @@ class ErrorDynamicsMPC:
         opti.subject_to(u_var[1, :] <= self.w_max)
 
 
-
+        opts_setting = {'ipopt.max_iter': 1000, 'ipopt.print_level': 0, 'print_time': 0, 'ipopt.acceptable_tol': 1e-8,
+                        'ipopt.acceptable_obj_change_tol': 1e-6}
         opti.minimize(cost)
-        opti.solver('ipopt')
+        opti.solver('ipopt', opts_setting)
         sol = opti.solve()
         psi_sol = sol.value(x_var)
         u_sol = sol.value(u_var)
