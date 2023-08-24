@@ -152,7 +152,7 @@ class NaiveMPC:
         N = self.N
         index_end = min(k + N, self.nTraj - 1)
         X = self.ref_state[:, index_end]
-        # x_goal = np.array([X.x(), X.y(), X.angle()])
+        x_goal = X
         opti = ca.Opti()
         x_var = opti.variable(nx, N + 1)
         u_var = opti.variable(nu, N)
@@ -176,7 +176,7 @@ class NaiveMPC:
             # u_target = np.zeros((2, 1))
             cost += self.cost_func(x_var[:, i], x_target, u_var[:, i], u_target, self.Q, self.R)
 
-
+        cost += self.cost_func(x_var[:, N], x_goal, np.zeros((nu,1)), np.zeros((nu, 1)), 100*self.Q, self.R)
         # control bound
         opti.subject_to(u_var[0, :] >= self.v_min)
         opti.subject_to(u_var[0, :] <= self.v_max)

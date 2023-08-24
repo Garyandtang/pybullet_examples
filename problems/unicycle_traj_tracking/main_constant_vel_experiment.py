@@ -102,7 +102,7 @@ def feedback_linearization_simulation(traj_generator, controller, init_state):
 
 def main():
     # set up init state and reference trajectory
-    init_state = np.array([-0.5, -0.5, np.pi / 6])
+    init_state = np.array([-2, -2, np.pi / 6])
     traj_config = {'type': TrajType.CIRCLE,
                    'param': {'start_state': np.array([0, 0, 0]),
                              'linear_vel': 0.4,
@@ -137,6 +137,7 @@ def main():
     w_max = 4
     edmpc.set_control_bound(-v_max,v_max,-w_max,w_max)
     nmpc.set_control_bound(-v_max,v_max,-w_max,w_max)
+    fb_linearization_controller.set_control_bound(-v_max,v_max,-w_max,w_max)
 
     SE2_store_ed, twist_store_ed = mpc_simulation(traj_generator, edmpc, init_state)
     SE2_store_nmpc, twist_store_nmpc = nmpc_simulation(traj_generator, nmpc, init_state)

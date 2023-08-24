@@ -30,7 +30,25 @@ class FBLinearizationController:
         v = v_d * np.cos(error[2]) - u[0]
         w = w_d - u[1]
         vel_cmd = np.array([v, w])
-        return vel_cmd
+        return self.saturate_control(vel_cmd)
+
+    def set_control_bound(self, v_min = -1.5, v_max= 1.5, w_min = -np.pi, w_max= np.pi):
+        self.v_min = v_min
+        self.v_max = v_max
+        self.w_min = w_min
+        self.w_max = w_max
+
+    def saturate_control(self, vel_cmd):
+        v, w = vel_cmd
+        if v < self.v_min:
+            v = self.v_min
+        elif v > self.v_max:
+            v = self.v_max
+        if w < self.w_min:
+            w = self.w_min
+        elif w > self.w_max:
+            w = self.w_max
+        return np.array([v, w])
 
 
 
