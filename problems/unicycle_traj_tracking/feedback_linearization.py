@@ -14,6 +14,8 @@ class FBLinearizationController:
         self.K = np.array([[-k1, 0, 0],
                             [0, -k2, -k3]])
 
+        self.set_control_bound()
+
     def feedback_control(self, curr_state, ref_state, ref_vel_cmd):
         """
         :param curr_state: [x, y, theta]

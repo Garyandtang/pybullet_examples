@@ -31,6 +31,11 @@ class WMRType(str, Enum):
     DIFF_DRIVE = 'diff_drive'
     CAR_LIKE = 'car_like'
 
+class ControllerType(str, Enum):
+    FEEDBACK_LINEARIZATION = 'feedback_linearization'
+    NMPC = 'nonlinear_model_predictive_control'
+    GMPC = 'Geomtric_model_predictive_control'
+
 if __name__ == '__main__':
     print(Task.STABILIZATION)
     print(type(Task.STABILIZATION.value))

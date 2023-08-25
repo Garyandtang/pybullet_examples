@@ -6,7 +6,7 @@ from manifpy import SE2, SE2Tangent, SO2, SO2Tangent
 import casadi as ca
 import math
 from ref_traj_generator import TrajGenerator
-from utils.enum_class import TrajType
+from utils.enum_class import TrajType, ControllerType
 from naive_mpc import NaiveMPC
 """
 this ErrorDynamicsMPC class is used to solve tracking problem of uni-cycle model
@@ -31,6 +31,7 @@ the reference trajectory is generated using TrajGenerator class in ref_traj_gene
 
 class ErrorDynamicsMPC:
     def __init__(self, ref_traj_config):
+        self.controller_tye = ControllerType.GMPC
         self.nState = 3  # twist error (se2 vee) R^3
         self.nControl = 2  # velocity control (v, w) R^2
         self.nTwist = 3  # twist (se2 vee) R^3
@@ -144,6 +145,10 @@ class ErrorDynamicsMPC:
 
     def local_twist_to_vel_cmd(self, local_vel):
         return ca.vertcat(local_vel[0], local_vel[2])
+
+    @property
+    def get_controller_type(self):
+        return self.controllerType
 
 
 def test_mpc():

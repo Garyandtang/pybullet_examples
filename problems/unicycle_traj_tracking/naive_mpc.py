@@ -7,7 +7,7 @@ from ref_traj_generator import TrajGenerator
 from utils.enum_class import TrajType, CostType, DynamicsType
 from controllers.lqr.lqr_utils import *
 import casadi as ca
-from utils.enum_class import CostType, DynamicsType
+from utils.enum_class import CostType, DynamicsType, ControllerType
 from utils.symbolic_system import FirstOrderModel
 from liecasadi import SO3
 
@@ -99,6 +99,7 @@ class UnicycleModel:
 
 class NaiveMPC:
     def __init__(self, ref_traj_config, model_config={}):
+        self.controllerType = ControllerType.NMPC
         config = model_config
         # dynamics
         self.model = UnicycleModel(config).symbolic
@@ -204,6 +205,10 @@ class NaiveMPC:
 
     def local_twist_to_vel_cmd(self, local_vel):
         return ca.vertcat(local_vel[0], local_vel[2])
+
+    @property
+    def get_controller_type(self):
+        return self.controllerType
 
 
 def test_mpc():

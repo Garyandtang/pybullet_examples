@@ -53,8 +53,8 @@ class ScoutMini():
         self.nState = 3
         self.nControl = 2
         # turtlebot model parameters
-        self.SCOUT_WHEELBASE = 0.55 *2
-        self.SCOUT_WHEEL_RADIUS = 0.175 /2
+        self.SCOUT_WHEELBASE = 0.55 # *2
+        self.SCOUT_WHEEL_RADIUS = 0.175 #/2
         self.SCOUT_HEIGHT = 0.181368485
         if init_state is None:
             self.init_state = np.array([0, 0, self.SCOUT_HEIGHT])
