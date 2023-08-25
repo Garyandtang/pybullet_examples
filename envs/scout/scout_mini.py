@@ -68,6 +68,7 @@ class ScoutMini():
 
     def reset(self, seed=None):
         # reset the simulation
+        self._set_action_space()
         p.resetSimulation(physicsClientId=self.PYB_CLIENT)
         p.setGravity(0, 0, -9.81, physicsClientId=self.PYB_CLIENT)
         p.setTimeStep(self.PYB_TIMESTEP, physicsClientId=self.PYB_CLIENT)
@@ -137,11 +138,29 @@ class ScoutMini():
         """
         return action
 
+    def _set_action_space(self):
+        self.v_min = -5
+        self.v_max = 5
+        self.w_min = -5
+        self.w_max = 5
+
     def _preprocess_control(self, action):
         raise NotImplementedError
 
-    def _set_action_space(self, state):
-        raise NotImplementedError
+    def get_vel_cmd_limit(self):
+        return self.v_min, self.v_max, self.w_min, self.w_max
+
+    def saturate_vel_cmd(self, vel_cmd):
+        v, w = vel_cmd
+        if v < self.v_min:
+            v = self.v_min
+        elif v > self.v_max:
+            v = self.v_max
+        if w < self.w_min:
+            w = self.w_minna
+        elif w > self.w_max:
+            w = self.w_max
+        return np.array([v, w])
 
     def draw_ref_traj(self, ref_SE2):
         # ref_se2: [x, y, cos(theta), sin(theta)]

@@ -51,19 +51,20 @@ class TrajGenerator:
         T = round(1/self.dt)
         self.nTraj = config.get('nTraj', 170)
         init_state = config.get('start_state', np.array([0, 0, 0]))
-        scale = config.get('scale', 1)
+        v_scale = config.get('v_scale', 1)
+        w_scale = config.get('w_scale', 1)
         self.ref_SE2 = np.zeros((self.nSE2, self.nTraj))  # [x, y, cos(theta), sin(theta)]
         self.ref_twist = np.zeros((self.nTwist, self.nTraj))  # [vx, vy, w]
 
         self.ref_SE2[:, 0] = SE2(init_state[0], init_state[1], init_state[2]).coeffs()
         t = 0.0
         for i in range(self.nTraj - 1):  # 0 to nTraj-2
-            xdot = scale * np.cos(4.0 * np.pi * t / T) * 4.0 * np.pi / T
-            ydot = scale * np.cos(2.0 * np.pi * t / T) * 2.0 * np.pi / T
+            xdot = v_scale * np.cos(w_scale*4.0 * np.pi * t / T) * 4.0 * np.pi / T
+            ydot = v_scale * np.cos(w_scale*2.0 * np.pi * t / T) * 2.0 * np.pi / T
             v = np.sqrt(xdot ** 2 + ydot ** 2)
             # calculate angular velocity
-            xdotdot = -scale * np.sin(4 * np.pi * t / T) * (4.0 * np.pi / T) ** 2
-            ydotdot = -scale * np.sin(2 * np.pi * t / T) * (2.0 * np.pi / T) ** 2
+            xdotdot = -v_scale * np.sin(w_scale*4 * np.pi * t / T) * (4.0 * np.pi / T) ** 2
+            ydotdot = -v_scale * np.sin(w_scale*2 * np.pi * t / T) * (2.0 * np.pi / T) ** 2
             w = (ydotdot * xdot - xdotdot * ydot) / (xdot ** 2 + ydot ** 2)
 
             twist = np.array([v, 0, w])
@@ -123,6 +124,12 @@ class TrajGenerator:
     def get_traj(self):
         return self.ref_SE2, self.ref_twist, self.dt
 
+    def get_vel_bound(self):
+        v_min = np.min(self.ref_twist[0, :])
+        v_max = np.max(self.ref_twist[0, :])
+        w_min = np.min(self.ref_twist[2, :])
+        w_max = np.max(self.ref_twist[2, :])
+        return v_min, v_max, w_min, w_max
     def vel_cmd_to_local_vel(self, vel_cmd):
         # non-holonomic constraint
         # vel_cmd: [v, w]

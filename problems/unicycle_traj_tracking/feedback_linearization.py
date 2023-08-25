@@ -5,14 +5,16 @@ import matplotlib.pyplot as plt
 from manifpy import SE2, SE2Tangent, SO2, SO2Tangent
 import casadi as ca
 import math
-from utils.enum_class import WMRType, TrajType
+from utils.enum_class import WMRType, TrajType, ControllerType
 from ref_traj_generator import TrajGenerator
 
+
 class FBLinearizationController:
-    def __init__(self, Kp = np.array([2, 2, 2])):
+    def __init__(self, Kp=np.array([2, 2, 2])):
+        self.a = ControllerType.FEEDBACK_LINEARIZATION
         k1, k2, k3 = Kp
         self.K = np.array([[-k1, 0, 0],
-                            [0, -k2, -k3]])
+                           [0, -k2, -k3]])
 
         self.set_control_bound()
 
@@ -32,9 +34,9 @@ class FBLinearizationController:
         v = v_d * np.cos(error[2]) - u[0]
         w = w_d - u[1]
         vel_cmd = np.array([v, w])
-        return self.saturate_control(vel_cmd)
+        return vel_cmd
 
-    def set_control_bound(self, v_min = -1.5, v_max= 1.5, w_min = -np.pi, w_max= np.pi):
+    def set_control_bound(self, v_min=-4, v_max=4, w_min=-4, w_max=4):
         self.v_min = v_min
         self.v_max = v_max
         self.w_min = w_min
@@ -53,11 +55,9 @@ class FBLinearizationController:
         return np.array([v, w])
 
 
-
-
 def test_fb_linearization_controller():
     # set up init state and reference trajectory
-    init_state = np.array([-0.2, -0.2, np.pi/6])
+    init_state = np.array([-0.2, -0.2, np.pi / 6])
     traj_config = {'type': TrajType.CIRCLE,
                    'param': {'start_state': np.array([0, 0, 0]),
                              'linear_vel': 0.5,
@@ -84,18 +84,18 @@ def test_fb_linearization_controller():
     # simulate
     t = 0
     store_state[:, 0] = init_state
-    for i in range(ref_SE2.shape[1]-1):
+    for i in range(ref_SE2.shape[1] - 1):
         curr_state = store_state[:, i]
         curr_SE2 = SE2(curr_state[0], curr_state[1], curr_state[2])
         ref_SE2_coeff = ref_SE2[:, i]
-        X_ref =SE2(ref_SE2_coeff)
+        X_ref = SE2(ref_SE2_coeff)
         ref_state = np.array([X_ref.x(), X_ref.y(), X_ref.angle()])
         ref_vel_cmd = np.array([ref_twist[0, i], ref_twist[2, i]])
         vel_cmd = fb_linearization_controller.feedback_control(curr_state, ref_state, ref_vel_cmd)
         twist_cmd = np.array([vel_cmd[0], 0, vel_cmd[1]])
         next_SE2 = curr_SE2 + SE2Tangent(twist_cmd) * dt
         next_state = np.array([next_SE2.x(), next_SE2.y(), next_SE2.angle()])
-        store_state[:, i+1] = next_state
+        store_state[:, i + 1] = next_state
         store_vel_cmd[:, i] = vel_cmd
         t += dt
 
@@ -137,6 +137,7 @@ def test_fb_linearization_controller():
     plt.ylabel('orientation difference')
     plt.grid(True)
     plt.show()
+
 
 if __name__ == '__main__':
     test_fb_linearization_controller()

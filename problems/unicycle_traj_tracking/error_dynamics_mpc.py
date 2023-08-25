@@ -31,7 +31,7 @@ the reference trajectory is generated using TrajGenerator class in ref_traj_gene
 
 class ErrorDynamicsMPC:
     def __init__(self, ref_traj_config):
-        self.controller_tye = ControllerType.GMPC
+        self.controllerType = ControllerType.GMPC
         self.nState = 3  # twist error (se2 vee) R^3
         self.nControl = 2  # velocity control (v, w) R^2
         self.nTwist = 3  # twist (se2 vee) R^3
