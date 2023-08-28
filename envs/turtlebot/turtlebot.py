@@ -157,10 +157,10 @@ class Turtlebot():
         raise NotImplementedError
 
     def _set_action_space(self):
-        self.v_min = -0.22
-        self.v_max = 0.22
-        self.w_min = -2.84
-        self.w_max = 2.84
+        self.v_min = -1
+        self.v_max = 1
+        self.w_min = -3.14
+        self.w_max = 3.14
 
     def get_vel_cmd_limit(self):
         return self.v_min, self.v_max, self.w_min, self.w_max

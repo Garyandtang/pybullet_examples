@@ -14,17 +14,13 @@ import scipy
 def main():
     mc_num = 1
     # set init state
-    init_x = np.random.uniform(-0.3, 0.3)
-    init_y = np.random.uniform(-0.3, 0.3)
-    init_theta = np.random.uniform(-np.pi / 4, np.pi / 4)
-    init_state = np.array([init_x, init_y, init_theta])
 
     # set trajetory
     traj_config = {'type': TrajType.CIRCLE,
                      'param': {'start_state': np.array([0, 0, 0]),
-                              'linear_vel': 0.1,
-                              'angular_vel': 0.1,
-                              'nTraj': 1500,
+                              'linear_vel': 0.5,
+                              'angular_vel': 0.5,
+                              'nTraj': 2500,
                               'dt': 0.02}}
     traj_gen = TrajGenerator(traj_config)
     ref_SE2, ref_twist, dt = traj_gen.get_traj()
@@ -39,35 +35,101 @@ def main():
     fb_orientation_error = np.zeros((mc_num, ref_SE2.shape[1]))
 
     for i in range(mc_num):
+        # random init state
+        init_x = np.random.uniform(-0.1, 0.1)
+        init_y = np.random.uniform(-0.1, 0.1)
+        init_theta = np.random.uniform(-np.pi / 6, np.pi / 6)
+        init_state = np.array([init_x, init_y, init_theta])
         print('mc_num: ', i)
         controller = ErrorDynamicsMPC(traj_config)
-        store_SE2, store_twist = constant_vel_simulation(init_state, controller)
+        store_SE2, store_twist = constant_vel_simulation(init_state, controller, traj_gen)
         # calculate position and orientation error
         edmpc_position_error[i, :] = np.linalg.norm(store_SE2[:2, :] - ref_SE2[:2, :], axis=0)
         for j in range(ref_SE2.shape[1]):
-            so2_error = SO2(store_SE2[2, j]).between(SO2(ref_SE2[2, j])).log().coeffs()
+            ref_angle = SE2(ref_SE2[:, j]).angle()
+            so2_error = SO2(store_SE2[2, j]).between(SO2(ref_angle)).log().coeffs()
             edmpc_orientation_error[i, j] = scipy.linalg.norm(so2_error[0])
-        # plot error
-        plt.figure(1)
-        plt.plot(edmpc_position_error[i, :], label='edmpc')
-        plt.legend()
+
+        controller = NaiveMPC(traj_config)
+        store_SE2, store_twist = constant_vel_simulation(init_state, controller, traj_gen)
+        # calculate position and orientation error
+        nmpc_position_error[i, :] = np.linalg.norm(store_SE2[:2, :] - ref_SE2[:2, :], axis=0)
+        for j in range(ref_SE2.shape[1]):
+            ref_angle = SE2(ref_SE2[:, j]).angle()
+            so2_error = SO2(store_SE2[2, j]).between(SO2(ref_angle)).log().coeffs()
+            nmpc_orientation_error[i, j] = scipy.linalg.norm(so2_error[0])
+
+        controller = FBLinearizationController()
+        store_SE2, store_twist = constant_vel_simulation(init_state, controller, traj_gen)
+        # calculate position and orientation error
+        fb_position_error[i, :] = np.linalg.norm(store_SE2[:2, :] - ref_SE2[:2, :], axis=0)
+        for j in range(ref_SE2.shape[1]):
+            ref_angle = SE2(ref_SE2[:, j]).angle()
+            so2_error = SO2(store_SE2[2, j]).between(SO2(ref_angle)).log().coeffs()
+            fb_orientation_error[i, j] = scipy.linalg.norm(so2_error[0])
+        # plot
+        plt.figure()
+        plt.plot(edmpc_position_error.T, label='edmpc')
+        plt.title("edmpc position error")
+        plt.xlabel("N")
+        plt.ylabel("position error")
         plt.show()
-        plt.figure(2)
-        plt.plot(edmpc_orientation_error[i, :], label='edmpc')
-        plt.legend()
+
+        plt.figure()
+        plt.plot(edmpc_orientation_error.T, label='edmpc')
+        plt.title("edmpc orientation error")
+        plt.xlabel("N")
+        plt.ylabel("orientation error")
         plt.show()
-def constant_vel_simulation(init_state, controller):
+
+        plt.figure()
+        plt.plot(nmpc_position_error.T, label='nmpc')
+        plt.title("nmpc position error")
+        plt.xlabel("N")
+        plt.ylabel("position error")
+        plt.show()
+
+        plt.figure()
+        plt.plot(nmpc_orientation_error.T, label='nmpc')
+        plt.title("nmpc orientation error")
+        plt.xlabel("N")
+        plt.ylabel("orientation error")
+        plt.show()
+
+        plt.figure()
+        plt.plot(fb_position_error.T, label='fb')
+        plt.title("fb position error")
+        plt.xlabel("N")
+        plt.ylabel("position error")
+        plt.show()
+
+        plt.figure()
+        plt.plot(fb_orientation_error.T, label='fb')
+        plt.title("fb orientation error")
+        plt.xlabel("N")
+        plt.ylabel("orientation error")
+        plt.show()
+
+    print('end')
+    np.save('data/edmpc_position_error.npy', edmpc_position_error)
+    np.save('data/edmpc_orientation_error.npy', edmpc_orientation_error)
+    np.save('data/nmpc_position_error.npy', nmpc_position_error)
+    np.save('data/nmpc_orientation_error.npy', nmpc_orientation_error)
+    np.save('data/fb_position_error.npy', fb_position_error)
+    np.save('data/fb_orientation_error.npy', fb_orientation_error)
+
+def constant_vel_simulation(init_state, controller, traj_gen):
 
     # set env and traj
-    env = Turtlebot(gui=True, debug=True, init_state=init_state)
+    env = Turtlebot(gui=False, debug=True, init_state=init_state)
     v_min, v_max, w_min, w_max = env.get_vel_cmd_limit()
-    ref_SE2, ref_twist, dt = controller.ref_SE2, controller.ref_twist, controller.dt
+    ref_SE2, ref_twist, dt = traj_gen.get_traj()
 
     # set controller limits
     controller.set_control_bound(v_min, v_max, w_min, w_max)
 
     # store simulation traj
-    nTraj = controller.nTraj
+    nTraj = ref_SE2.shape[1]
     store_state = np.zeros((3, nTraj))
     store_twist = np.zeros((2, nTraj))
     env.draw_ref_traj(ref_SE2)
