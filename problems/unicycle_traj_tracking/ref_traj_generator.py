@@ -122,6 +122,8 @@ class TrajGenerator:
     #     raise NotImplementedError
 
     def get_traj(self):
+        v_min_, v_max_, w_min_, w_max_ = self.get_vel_bound()
+        print("v_min: ", v_min_, "v_max: ", v_max_, "w_min: ", w_min_, "w_max: ", w_max_)
         return self.ref_SE2, self.ref_twist, self.dt
 
     def get_vel_bound(self):

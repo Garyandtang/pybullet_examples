@@ -24,10 +24,12 @@ class Turtlebot():
     def __init__(self,
                  init_state: np.ndarray = None,
                  gui: bool = False,
+                 debug: bool = False,
                  **kwargs):
         # super().__init__(gui=gui, **kwargs)
         # configuration setup
         self.GUI = gui
+        self.DEBUG = debug
         self.CTRL_FREQ = 50  # control frequency
         self.PYB_FREQ = 50  # simulator fr
         self.PYB_STEPS_PER_CTRL = int(self.PYB_FREQ / self.CTRL_FREQ)
@@ -74,8 +76,10 @@ class Turtlebot():
         p.setAdditionalSearchPath(pybullet_data.getDataPath(), physicsClientId=self.PYB_CLIENT)
 
         # turtlebot setting
+        self.init_pos = np.array([self.init_state[0], self.init_state[1], 0])
+        self.init_quat = p.getQuaternionFromEuler([0, 0, self.init_state[2]])
         self.plane = p.loadURDF("plane.urdf", physicsClientId=self.PYB_CLIENT)
-        self.turtlebot = p.loadURDF(self.URDF_PATH, self.init_state, physicsClientId=self.PYB_CLIENT)
+        self.turtlebot = p.loadURDF(self.URDF_PATH, self.init_pos, self.init_quat, physicsClientId=self.PYB_CLIENT)
         p.resetJointState(self.turtlebot, 0, 0, 0, physicsClientId=self.PYB_CLIENT)
         p.resetJointState(self.turtlebot, 1, 0, 0, physicsClientId=self.PYB_CLIENT)
 
@@ -144,6 +148,8 @@ class Turtlebot():
         return action
 
     def draw_point(self, point):
+        if not self.DEBUG or not self.GUI:
+            return
         p.addUserDebugPoints(
             [[point[0], point[1], 0.12]], [[0.1, 0, 0]], pointSize=3, lifeTime=0.5)
 
@@ -173,6 +179,8 @@ class Turtlebot():
 
     def draw_ref_traj(self, ref_SE2):
         # ref_se2: [x, y, cos(theta), sin(theta)]
+        if not self.DEBUG or not self.GUI:
+            return
         ref_traj = np.zeros((3, ref_SE2.shape[1]))
         ref_traj[0:2, :] = ref_SE2[0:2, :]
         ref_traj[2, :] = 0.1

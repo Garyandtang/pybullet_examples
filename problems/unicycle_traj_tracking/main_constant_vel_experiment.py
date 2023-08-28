@@ -27,8 +27,6 @@ def mpc_simulation(traj_generator, controller, init_state):
 
     t = 0
     for i in range(nTraj - 1):
-        if (i == 11):
-            print('debug')
         curr_SE2 = store_SE2[:, i]
         curr_vel_cmd = controller.solve(curr_SE2, t)
         curr_twist = controller.vel_cmd_to_local_twist(curr_vel_cmd).full().flatten()

@@ -8,36 +8,41 @@ from feedback_linearization import FBLinearizationController
 from error_dynamics_mpc import ErrorDynamicsMPC
 from ref_traj_generator import TrajGenerator
 from manifpy import SE2, SE2Tangent, SO2, SO2Tangent
-def main():
 
+
+def main():
+    init_x = np.random.uniform(-0.3, 0.3)
+    init_y = np.random.uniform(-0.3, 0.3)
+    init_theta = np.random.uniform(-np.pi/4, np.pi/4)
+    init_state = np.array([init_x, init_y, init_theta])
     # set env
-    env = ScoutMini(gui=True)
+    env = Turtlebot(gui=False, debug=True, init_state=init_state)
     v_min, v_max, w_min, w_max = env.get_vel_cmd_limit()
 
     # set solver
     traj_config = {'type': TrajType.CIRCLE,
-                   'param': {'start_state': np.array([1, 1, 0]),
+                   'param': {'start_state': np.array([0, 0, 0]),
                              'linear_vel': 0.1,
                              'angular_vel': 0.1,
-                             'nTraj': 6700,
+                             'nTraj': 2500,
                              'dt': 0.02}}
 
-    # figure of eight
-    traj_config = {'type': TrajType.EIGHT,
-              'param': {'start_state': np.array([0, 0, 0]),
-                        'dt': 0.02,
-                        'v_scale': 0.5,
-                        'w_scale': 1,
-                        'nTraj': 2500}}
+    # # figure of eight
+    # traj_config = {'type': TrajType.EIGHT,
+    #           'param': {'start_state': np.array([0, 0, 0]),
+    #                     'dt': 0.02,
+    #                     'v_scale': 0.5,
+    #                     'w_scale': 1,
+    #                     'nTraj': 2500}}
 
     traj_gen = TrajGenerator(traj_config)
     ref_SE2, ref_twist, dt = traj_gen.get_traj()
-    v_min_, v_max_, w_min_, w_max_ = traj_gen.get_vel_bound()
-    print("v_min: ", v_min_, "v_max: ", v_max_, "w_min: ", w_min_, "w_max: ", w_max_)
+
     env.draw_ref_traj(ref_SE2)
     controller = ErrorDynamicsMPC(traj_config)
+
+    controller = FBLinearizationController()
     controller.set_control_bound(v_min, v_max, w_min, w_max)
-    # controller = FBLinearizationController()
     t = 0
     for i in range(ref_SE2.shape[1] - 1):
         start = time.time()

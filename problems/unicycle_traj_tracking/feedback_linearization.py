@@ -11,7 +11,7 @@ from ref_traj_generator import TrajGenerator
 
 class FBLinearizationController:
     def __init__(self, Kp=np.array([2, 2, 2])):
-        self.a = ControllerType.FEEDBACK_LINEARIZATION
+        self.controllerType = ControllerType.FEEDBACK_LINEARIZATION
         k1, k2, k3 = Kp
         self.K = np.array([[-k1, 0, 0],
                            [0, -k2, -k3]])
