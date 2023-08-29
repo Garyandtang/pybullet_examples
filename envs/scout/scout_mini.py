@@ -59,10 +59,9 @@ class ScoutMini():
         self.SCOUT_WHEEL_RADIUS = 0.175 #/2
         self.SCOUT_HEIGHT = 0.181368485
         if init_state is None:
-            self.init_state = np.array([0, 0, self.SCOUT_HEIGHT])
+            self.init_state = np.array([0, 0, 0])
         elif isinstance(init_state, np.ndarray):
             self.init_state = init_state
-            self.init_state[2] = self.SCOUT_HEIGHT
         else:
             raise ValueError('[ERROR] in turtlebot.__init__(), init_state, type: {}, size: {}'.format(type(init_state),
                                                                                                          len(init_state)))
@@ -78,7 +77,7 @@ class ScoutMini():
         p.setAdditionalSearchPath(pybullet_data.getDataPath(), physicsClientId=self.PYB_CLIENT)
 
         # turtlebot setting
-        self.init_pos = np.array([self.init_state[0], self.init_state[1], 0])
+        self.init_pos = np.array([self.init_state[0], self.init_state[1], self.SCOUT_HEIGHT])
         self.init_quat = p.getQuaternionFromEuler([0, 0, self.init_state[2]])
         self.plane = p.loadURDF("plane.urdf", physicsClientId=self.PYB_CLIENT)
         self.scout = p.loadURDF(self.URDF_PATH, self.init_pos, self.init_quat,  physicsClientId=self.PYB_CLIENT)

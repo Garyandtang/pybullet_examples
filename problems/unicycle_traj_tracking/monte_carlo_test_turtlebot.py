@@ -2,7 +2,7 @@ import time
 from envs.turtlebot.turtlebot import Turtlebot
 from envs.scout.scout_mini import ScoutMini
 import numpy as np
-from utils.enum_class import CostType, DynamicsType, TrajType, ControllerType
+from utils.enum_class import CostType, DynamicsType, TrajType, ControllerType, EnvType
 from naive_mpc import NaiveMPC
 from feedback_linearization import FBLinearizationController
 from error_dynamics_mpc import ErrorDynamicsMPC
@@ -11,27 +11,28 @@ from manifpy import SE2, SE2Tangent, SO2, SO2Tangent
 import matplotlib.pyplot as plt
 import scipy
 
-def main():
-    mc_num = 50
-    # set init state
 
+def main():
+    mc_num = 1
+    env_type = EnvType.TURTLEBOT
+    # set init state
     # set trajetory
     traj_config = {'type': TrajType.CIRCLE,
-                     'param': {'start_state': np.array([0, 0, 0]),
-                              'linear_vel': 0.5,
-                              'angular_vel': 0.5,
-                              'nTraj': 1000,
-                              'dt': 0.02}}
+                   'param': {'start_state': np.array([0, 0, 0]),
+                             'linear_vel': 0.5,
+                             'angular_vel': 0.5,
+                             'nTraj': 1000,
+                             'dt': 0.02}}
     traj_gen = TrajGenerator(traj_config)
     ref_SE2, ref_twist, dt = traj_gen.get_traj()
     # store error
-    edmpc_position_error = np.zeros((mc_num, ref_SE2.shape[1] ))
+    edmpc_position_error = np.zeros((mc_num, ref_SE2.shape[1]))
     edmpc_orientation_error = np.zeros((mc_num, ref_SE2.shape[1]))
 
-    nmpc_position_error = np.zeros((mc_num, ref_SE2.shape[1] ))
-    nmpc_orientation_error = np.zeros((mc_num, ref_SE2.shape[1] ))
+    nmpc_position_error = np.zeros((mc_num, ref_SE2.shape[1]))
+    nmpc_orientation_error = np.zeros((mc_num, ref_SE2.shape[1]))
 
-    fb_position_error = np.zeros((mc_num, ref_SE2.shape[1] ))
+    fb_position_error = np.zeros((mc_num, ref_SE2.shape[1]))
     fb_orientation_error = np.zeros((mc_num, ref_SE2.shape[1]))
 
     for i in range(mc_num):
@@ -42,31 +43,17 @@ def main():
         init_state = np.array([init_x, init_y, init_theta])
         print('mc_num: ', i)
         controller = ErrorDynamicsMPC(traj_config)
-        store_SE2, store_twist = constant_vel_simulation(init_state, controller, traj_gen)
-        # calculate position and orientation error
-        edmpc_position_error[i, :] = np.linalg.norm(store_SE2[:2, :] - ref_SE2[:2, :], axis=0)
-        for j in range(ref_SE2.shape[1]):
-            ref_angle = SE2(ref_SE2[:, j]).angle()
-            so2_error = SO2(store_SE2[2, j]).between(SO2(ref_angle)).log().coeffs()
-            edmpc_orientation_error[i, j] = scipy.linalg.norm(so2_error[0])
+        store_SE2, store_twist = simulation(init_state, controller, traj_gen, env_type)
+        edmpc_position_error[i, :], edmpc_orientation_error[i, :] = calulate_trajecotry_error(ref_SE2, store_SE2)
 
         controller = NaiveMPC(traj_config)
-        store_SE2, store_twist = constant_vel_simulation(init_state, controller, traj_gen)
-        # calculate position and orientation error
-        nmpc_position_error[i, :] = np.linalg.norm(store_SE2[:2, :] - ref_SE2[:2, :], axis=0)
-        for j in range(ref_SE2.shape[1]):
-            ref_angle = SE2(ref_SE2[:, j]).angle()
-            so2_error = SO2(store_SE2[2, j]).between(SO2(ref_angle)).log().coeffs()
-            nmpc_orientation_error[i, j] = scipy.linalg.norm(so2_error[0])
+        store_SE2, store_twist = simulation(init_state, controller, traj_gen, env_type)
+        nmpc_position_error[i, :], nmpc_orientation_error[i, :] = calulate_trajecotry_error(ref_SE2, store_SE2)
 
         controller = FBLinearizationController()
-        store_SE2, store_twist = constant_vel_simulation(init_state, controller, traj_gen)
-        # calculate position and orientation error
-        fb_position_error[i, :] = np.linalg.norm(store_SE2[:2, :] - ref_SE2[:2, :], axis=0)
-        for j in range(ref_SE2.shape[1]):
-            ref_angle = SE2(ref_SE2[:, j]).angle()
-            so2_error = SO2(store_SE2[2, j]).between(SO2(ref_angle)).log().coeffs()
-            fb_orientation_error[i, j] = scipy.linalg.norm(so2_error[0])
+        store_SE2, store_twist = simulation(init_state, controller, traj_gen, env_type)
+        fb_position_error[i, :], fb_orientation_error[i, :] = calulate_trajecotry_error(ref_SE2, store_SE2)
+
     # plot
     plt.figure()
     plt.plot(edmpc_position_error.T, label='edmpc')
@@ -111,17 +98,32 @@ def main():
     plt.show()
 
     print('end')
-    np.save('data/xxx/edmpc_position_error.npy', edmpc_position_error)
-    np.save('data/xxx/edmpc_orientation_error.npy', edmpc_orientation_error)
-    np.save('data/xxx/nmpc_position_error.npy', nmpc_position_error)
-    np.save('data/xxx/nmpc_orientation_error.npy', nmpc_orientation_error)
-    np.save('data/xxx/fb_position_error.npy', fb_position_error)
-    np.save('data/xxx/fb_orientation_error.npy', fb_orientation_error)
+    np.save('data/edmpc_position_error.npy', edmpc_position_error)
+    np.save('data/edmpc_orientation_error.npy', edmpc_orientation_error)
+    np.save('data/nmpc_position_error.npy', nmpc_position_error)
+    np.save('data/nmpc_orientation_error.npy', nmpc_orientation_error)
+    np.save('data/fb_position_error.npy', fb_position_error)
+    np.save('data/fb_orientation_error.npy', fb_orientation_error)
 
-def constant_vel_simulation(init_state, controller, traj_gen):
 
+def calulate_trajecotry_error(ref_SE2, store_SE2):
+    position_error = np.linalg.norm(store_SE2[:2, :] - ref_SE2[:2, :], axis=0)
+    orientation_error = np.zeros(ref_SE2.shape[1])
+    for i in range(ref_SE2.shape[1]):
+        ref_angle = SE2(ref_SE2[:, i]).angle()
+        so2_error = SO2(store_SE2[2, i]).between(SO2(ref_angle)).log().coeffs()
+        orientation_error[i] = scipy.linalg.norm(so2_error[0])
+    return position_error, orientation_error
+
+
+def simulation(init_state, controller, traj_gen, env_type):
     # set env and traj
-    env = Turtlebot(gui=False, debug=True, init_state=init_state)
+    if env_type == EnvType.TURTLEBOT:
+        env = Turtlebot(gui=False, debug=True, init_state=init_state)
+    elif env_type == EnvType.SCOUT_MINI:
+        env = ScoutMini(gui=False, debug=True, init_state=init_state)
+    else:
+        raise NotImplementedError
     v_min, v_max, w_min, w_max = env.get_vel_cmd_limit()
     ref_SE2, ref_twist, dt = traj_gen.get_traj()
 

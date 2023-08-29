@@ -11,15 +11,13 @@ from manifpy import SE2, SE2Tangent, SO2, SO2Tangent
 
 
 def main():
-    init_x = np.random.uniform(-0.3, 0.3)
-    init_y = np.random.uniform(-0.3, 0.3)
-    init_theta = np.random.uniform(-np.pi/4, np.pi/4)
     init_state = np.array([0, 0, 0])
     # set env
     env = ScoutMini(gui=True, debug=True, init_state=init_state)
     v_min, v_max, w_min, w_max = env.get_vel_cmd_limit()
 
     # set solver
+    # set trajetory
     traj_config = {'type': TrajType.CIRCLE,
                    'param': {'start_state': np.array([0, 0, 0]),
                              'linear_vel': 0.5,

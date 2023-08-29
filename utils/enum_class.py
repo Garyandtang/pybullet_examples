@@ -36,6 +36,11 @@ class ControllerType(str, Enum):
     NMPC = 'nonlinear_model_predictive_control'
     GMPC = 'Geomtric_model_predictive_control'
 
+
+class EnvType(str, Enum):
+    TURTLEBOT = 'turtlebot'
+    SCOUT_MINI = 'scout_mini'
+
 if __name__ == '__main__':
     print(Task.STABILIZATION)
     print(type(Task.STABILIZATION.value))
