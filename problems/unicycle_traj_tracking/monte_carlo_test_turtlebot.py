@@ -116,12 +116,12 @@ def calulate_trajecotry_error(ref_SE2, store_SE2):
     return position_error, orientation_error
 
 
-def simulation(init_state, controller, traj_gen, env_type):
+def simulation(init_state, controller, traj_gen, env_type, gui=False):
     # set env and traj
     if env_type == EnvType.TURTLEBOT:
-        env = Turtlebot(gui=False, debug=True, init_state=init_state)
+        env = Turtlebot(gui=gui, debug=True, init_state=init_state)
     elif env_type == EnvType.SCOUT_MINI:
-        env = ScoutMini(gui=False, debug=True, init_state=init_state)
+        env = ScoutMini(gui=gui, debug=True, init_state=init_state)
     else:
         raise NotImplementedError
     v_min, v_max, w_min, w_max = env.get_vel_cmd_limit()
