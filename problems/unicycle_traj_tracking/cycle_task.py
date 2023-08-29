@@ -16,7 +16,7 @@ def main():
     init_theta = np.random.uniform(-np.pi/4, np.pi/4)
     init_state = np.array([init_x, init_y, init_theta])
     # set env
-    env = Turtlebot(gui=False, debug=True, init_state=init_state)
+    env = ScoutMini(gui=True, debug=True, init_state=init_state)
     v_min, v_max, w_min, w_max = env.get_vel_cmd_limit()
 
     # set solver
@@ -28,12 +28,12 @@ def main():
                              'dt': 0.02}}
 
     # # figure of eight
-    # traj_config = {'type': TrajType.EIGHT,
-    #           'param': {'start_state': np.array([0, 0, 0]),
-    #                     'dt': 0.02,
-    #                     'v_scale': 0.5,
-    #                     'w_scale': 1,
-    #                     'nTraj': 2500}}
+    traj_config = {'type': TrajType.EIGHT,
+              'param': {'start_state': np.array([0, 0, 0]),
+                        'dt': 0.02,
+                        'v_scale': 3,
+                        'w_scale': 1,
+                        'nTraj': 2500}}
 
     traj_gen = TrajGenerator(traj_config)
     ref_SE2, ref_twist, dt = traj_gen.get_traj()
@@ -41,7 +41,7 @@ def main():
     env.draw_ref_traj(ref_SE2)
     controller = ErrorDynamicsMPC(traj_config)
 
-    controller = FBLinearizationController()
+    # controller = FBLinearizationController()
     controller.set_control_bound(v_min, v_max, w_min, w_max)
     t = 0
     for i in range(ref_SE2.shape[1] - 1):
