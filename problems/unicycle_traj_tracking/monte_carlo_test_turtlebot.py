@@ -12,9 +12,8 @@ import matplotlib.pyplot as plt
 import scipy
 
 def main():
-    mc_num = 50
+    mc_num = 1
     # set init state
-
     # set trajetory
     traj_config = {'type': TrajType.CIRCLE,
                      'param': {'start_state': np.array([0, 0, 0]),
@@ -42,31 +41,17 @@ def main():
         init_state = np.array([init_x, init_y, init_theta])
         print('mc_num: ', i)
         controller = ErrorDynamicsMPC(traj_config)
-        store_SE2, store_twist = constant_vel_simulation(init_state, controller, traj_gen)
-        # calculate position and orientation error
-        edmpc_position_error[i, :] = np.linalg.norm(store_SE2[:2, :] - ref_SE2[:2, :], axis=0)
-        for j in range(ref_SE2.shape[1]):
-            ref_angle = SE2(ref_SE2[:, j]).angle()
-            so2_error = SO2(store_SE2[2, j]).between(SO2(ref_angle)).log().coeffs()
-            edmpc_orientation_error[i, j] = scipy.linalg.norm(so2_error[0])
+        store_SE2, store_twist = simulation(init_state, controller, traj_gen)
+        edmpc_position_error[i, :], edmpc_orientation_error[i, :] = calulate_trajecotry_error(ref_SE2, store_SE2)
 
         controller = NaiveMPC(traj_config)
-        store_SE2, store_twist = constant_vel_simulation(init_state, controller, traj_gen)
-        # calculate position and orientation error
-        nmpc_position_error[i, :] = np.linalg.norm(store_SE2[:2, :] - ref_SE2[:2, :], axis=0)
-        for j in range(ref_SE2.shape[1]):
-            ref_angle = SE2(ref_SE2[:, j]).angle()
-            so2_error = SO2(store_SE2[2, j]).between(SO2(ref_angle)).log().coeffs()
-            nmpc_orientation_error[i, j] = scipy.linalg.norm(so2_error[0])
+        store_SE2, store_twist = simulation(init_state, controller, traj_gen)
+        nmpc_position_error[i, :], nmpc_orientation_error[i, :] = calulate_trajecotry_error(ref_SE2, store_SE2)
 
         controller = FBLinearizationController()
-        store_SE2, store_twist = constant_vel_simulation(init_state, controller, traj_gen)
-        # calculate position and orientation error
-        fb_position_error[i, :] = np.linalg.norm(store_SE2[:2, :] - ref_SE2[:2, :], axis=0)
-        for j in range(ref_SE2.shape[1]):
-            ref_angle = SE2(ref_SE2[:, j]).angle()
-            so2_error = SO2(store_SE2[2, j]).between(SO2(ref_angle)).log().coeffs()
-            fb_orientation_error[i, j] = scipy.linalg.norm(so2_error[0])
+        store_SE2, store_twist = simulation(init_state, controller, traj_gen)
+        fb_position_error[i, :], fb_orientation_error[i, :] = calulate_trajecotry_error(ref_SE2, store_SE2)
+
     # plot
     plt.figure()
     plt.plot(edmpc_position_error.T, label='edmpc')
@@ -111,14 +96,24 @@ def main():
     plt.show()
 
     print('end')
-    np.save('data/xxx/edmpc_position_error.npy', edmpc_position_error)
-    np.save('data/xxx/edmpc_orientation_error.npy', edmpc_orientation_error)
-    np.save('data/xxx/nmpc_position_error.npy', nmpc_position_error)
-    np.save('data/xxx/nmpc_orientation_error.npy', nmpc_orientation_error)
-    np.save('data/xxx/fb_position_error.npy', fb_position_error)
-    np.save('data/xxx/fb_orientation_error.npy', fb_orientation_error)
+    np.save('data/edmpc_position_error.npy', edmpc_position_error)
+    np.save('data/edmpc_orientation_error.npy', edmpc_orientation_error)
+    np.save('data/nmpc_position_error.npy', nmpc_position_error)
+    np.save('data/nmpc_orientation_error.npy', nmpc_orientation_error)
+    np.save('data/fb_position_error.npy', fb_position_error)
+    np.save('data/fb_orientation_error.npy', fb_orientation_error)
 
-def constant_vel_simulation(init_state, controller, traj_gen):
+
+def calulate_trajecotry_error(ref_SE2, store_SE2):
+    position_error = np.linalg.norm(store_SE2[:2, :] - ref_SE2[:2, :], axis=0)
+    orientation_error = np.zeros(ref_SE2.shape[1])
+    for i in range(ref_SE2.shape[1]):
+        ref_angle = SE2(ref_SE2[:, i]).angle()
+        so2_error = SO2(store_SE2[2, i]).between(SO2(ref_angle)).log().coeffs()
+        orientation_error[i] = scipy.linalg.norm(so2_error[0])
+    return position_error, orientation_error
+
+def simulation(init_state, controller, traj_gen):
 
     # set env and traj
     env = Turtlebot(gui=False, debug=True, init_state=init_state)

@@ -11,9 +11,6 @@ from manifpy import SE2, SE2Tangent, SO2, SO2Tangent
 
 
 def main():
-    init_x = np.random.uniform(-0.3, 0.3)
-    init_y = np.random.uniform(-0.3, 0.3)
-    init_theta = np.random.uniform(-np.pi/4, np.pi/4)
     init_state = np.array([0, 0, 0])
     # set env
     env = ScoutMini(gui=True, debug=True, init_state=init_state)
