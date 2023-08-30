@@ -22,8 +22,8 @@ def main():
     # set solver
     traj_config = {'type': TrajType.CIRCLE,
                    'param': {'start_state': np.array([0, 0, 0]),
-                             'linear_vel': 0.5,
-                             'angular_vel': 0.5,
+                             'linear_vel': 0.8,
+                             'angular_vel': 0.8,
                              'nTraj': 1000,
                              'dt': 0.02}}
 
@@ -32,7 +32,7 @@ def main():
     traj_config = {'type': TrajType.EIGHT,
               'param': {'start_state': np.array([0, 0, 0]),
                         'dt': 0.02,
-                        'v_scale': 2,
+                        'v_scale': 1.4,
                         'w_scale': 1,
                         'nTraj': 2500}}
 

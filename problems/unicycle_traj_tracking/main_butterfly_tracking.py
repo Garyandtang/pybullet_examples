@@ -10,6 +10,7 @@ from ref_traj_generator import TrajGenerator
 from manifpy import SE2, SE2Tangent, SO2, SO2Tangent
 from monte_carlo_test_turtlebot import calulate_trajecotry_error, simulation
 import os
+import matplotlib.pyplot as plt
 
 def butterfly_tracking(env_type, controller_type):
     init_state = np.array([0, 0, 0])
@@ -55,6 +56,7 @@ def butterfly_tracking(env_type, controller_type):
 def main():
     for env_type in EnvType:
         for controller_type in ControllerType:
+            print('env_type: {}, controller_type: {}'.format(env_type.value, controller_type.value))
             butterfly_tracking(env_type, controller_type)
 
 

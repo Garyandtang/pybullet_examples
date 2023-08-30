@@ -95,7 +95,7 @@ class Turtlebot():
     def get_twist(self):
         # [v, w]
         vel = p.getBaseVelocity(self.turtlebot, physicsClientId=self.PYB_CLIENT)
-        self.twist = np.array([vel[0][0], vel[1][2]])
+        self.twist = np.array([np.sqrt(vel[0][0]**2 + vel[0][1]**2), vel[1][2]])
         return self.twist
 
     def calc_twist(self, action):
@@ -187,7 +187,7 @@ class Turtlebot():
         for i in range(ref_SE2.shape[1] -1):
             p1 = ref_traj[:, i]
             p2 = ref_traj[:, i+1]
-            p.addUserDebugLine(p1, p2, [1, 0, 0], 2, physicsClientId=self.PYB_CLIENT)
+            p.addUserDebugLine(p1, p2, [1, 0, 0], 3, physicsClientId=self.PYB_CLIENT)
         return ref_traj
 
 if __name__ == '__main__':
