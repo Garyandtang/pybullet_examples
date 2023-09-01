@@ -17,7 +17,7 @@ def butterfly_tracking(env_type, controller_type):
     traj_config = {'type': TrajType.EIGHT,
                    'param': {'start_state': np.array([0, 0, 0]),
                              'dt': 0.02,
-                             'v_scale': 1,
+                             'v_scale': 1.8,
                              'w_scale': 1,
                              'nTraj': 2500}}
 

@@ -13,7 +13,7 @@ import scipy
 
 
 def main():
-    mc_num = 1
+    mc_num = 50
     env_type = EnvType.TURTLEBOT
     # set init state
     # set trajetory
@@ -21,7 +21,7 @@ def main():
                    'param': {'start_state': np.array([0, 0, 0]),
                              'linear_vel': 0.5,
                              'angular_vel': 0.5,
-                             'nTraj': 1000,
+                             'nTraj': 500,
                              'dt': 0.02}}
     traj_gen = TrajGenerator(traj_config)
     ref_SE2, ref_twist, dt = traj_gen.get_traj()
@@ -37,9 +37,9 @@ def main():
 
     for i in range(mc_num):
         # random init state
-        init_x = np.random.uniform(-0.15, 0.15)
-        init_y = np.random.uniform(-0.15, 0.15)
-        init_theta = np.random.uniform(-np.pi / 6, np.pi / 6)
+        init_x = np.random.uniform(-0.2, 0.2)
+        init_y = np.random.uniform(-0.2, 0.2)
+        init_theta = np.random.uniform(-np.pi / 4, np.pi / 4)
         init_state = np.array([init_x, init_y, init_theta])
         print('mc_num: ', i)
         controller = ErrorDynamicsMPC(traj_config)
