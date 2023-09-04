@@ -1,9 +1,6 @@
 import time
 
 from controllers.lqr.lqr_utils import *
-from envs.turtlebot.turtlebot import Turtlebot
-from envs.turtlebot.turtlebot_model import TurtlebotModel
-from functools import partial
 import numpy as np
 import casadi as ca
 from utils.enum_class import CostType, DynamicsType

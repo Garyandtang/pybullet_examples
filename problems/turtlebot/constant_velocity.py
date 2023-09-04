@@ -1,8 +1,8 @@
 import time
 
 from controllers.lqr.lqr_utils import *
-from envs.turtlebot.turtlebot import Turtlebot
-from envs.turtlebot.turtlebot_model import TurtlebotModel
+from environments.wheeled_mobile_robot.turtlebot.turtlebot import Turtlebot
+from environments.wheeled_mobile_robot.turtlebot.turtlebot_model import TurtlebotModel
 from functools import partial
 from controllers.dtm.direct_trans_method import DirectTransMethod
 import numpy as np
