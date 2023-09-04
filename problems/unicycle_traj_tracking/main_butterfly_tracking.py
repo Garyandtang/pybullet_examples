@@ -1,6 +1,3 @@
-import time
-from envs.turtlebot.turtlebot import Turtlebot
-from envs.scout.scout_mini import ScoutMini
 import numpy as np
 from utils.enum_class import CostType, DynamicsType, TrajType, ControllerType, EnvType
 from naive_mpc import NaiveMPC

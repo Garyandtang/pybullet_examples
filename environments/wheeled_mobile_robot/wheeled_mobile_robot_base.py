@@ -47,14 +47,14 @@ class WheeledMobileRobot(ABC):
 
     def get_state(self):
         # [x, y, theta]
-        pos, quat = p.getBasePositionAndOrientation(self.scout, physicsClientId=self.PYB_CLIENT)
+        pos, quat = p.getBasePositionAndOrientation(self.robot, physicsClientId=self.PYB_CLIENT)
         euler = p.getEulerFromQuaternion(quat)  # [-pi, pi]
         self.state = np.array([pos[0], pos[1], euler[2]])
         return self.state
 
     def get_twist(self):
         # [v, w]
-        vel = p.getBaseVelocity(self.scout, physicsClientId=self.PYB_CLIENT)
+        vel = p.getBaseVelocity(self.robot, physicsClientId=self.PYB_CLIENT)
         self.twist = np.array([np.sqrt(vel[0][0] ** 2 + vel[0][1] ** 2), vel[1][2]])
         return self.twist
     def draw_point(self, point):
@@ -91,7 +91,7 @@ class WheeledMobileRobot(ABC):
         elif v > self.v_max:
             v = self.v_max
         if w < self.w_min:
-            w = self.w_minna
+            w = self.w_min
         elif w > self.w_max:
             w = self.w_max
         return v, w
