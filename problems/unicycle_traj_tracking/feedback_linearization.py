@@ -17,6 +17,7 @@ class FBLinearizationController:
                            [0, -k2, -k3]])
 
         self.set_control_bound()
+        self.solve_time = 0.0
 
     def feedback_control(self, curr_state, ref_state, ref_vel_cmd):
         """
@@ -24,6 +25,7 @@ class FBLinearizationController:
         :param ref_state: [x_d, y_d, theta_d]
         :return: vel_cmd:[v, w]
         """
+        start_time = time.time()
         v_d, w_d = ref_vel_cmd
         state_diff = ref_state - curr_state
         frame_rot = np.array([[np.cos(curr_state[2]), np.sin(curr_state[2]), 0],
@@ -34,7 +36,11 @@ class FBLinearizationController:
         v = v_d * np.cos(error[2]) - u[0]
         w = w_d - u[1]
         vel_cmd = np.array([v, w])
+        self.solve_time = time.time() - start_time
         return vel_cmd
+
+    def get_solve_time(self):
+        return self.solve_time
 
     def set_control_bound(self, v_min=-4, v_max=4, w_min=-4, w_max=4):
         self.v_min = v_min

@@ -14,7 +14,7 @@ import pybullet_data
 from utils.symbolic_system import FirstOrderModel
 from environments.wheeled_mobile_robot.wheeled_mobile_robot_base import WheeledMobileRobot
 
-from envs.base_env import BaseEnv
+
 from functools import partial
 from utils.enum_class import CostType, DynamicsType
 

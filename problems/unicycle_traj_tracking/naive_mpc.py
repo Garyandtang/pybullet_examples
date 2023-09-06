@@ -10,6 +10,7 @@ import casadi as ca
 from utils.enum_class import CostType, DynamicsType, ControllerType
 from utils.symbolic_system import FirstOrderModel
 from liecasadi import SO3
+import time
 
 """
 naive MPC for unicycle model
@@ -105,6 +106,7 @@ class NaiveMPC:
         self.model = UnicycleModel(config).symbolic
         self.nState = self.model.nx  # 3 (x, y, theta)
         self.nControl = self.model.nu  # 2 (v, w)
+        self.solve_time = 0.0
         self.set_ref_traj(ref_traj_config)
         self.set_solver()
         self.set_control_bound()
@@ -150,6 +152,7 @@ class NaiveMPC:
         state: [x, y, theta]
         t: time -> index of reference trajectory (t = k * dt)
         """
+        start_time = time.time()
         if self.ref_state is None:
             raise ValueError('Reference trajectory is not set up yet!')
 
@@ -195,10 +198,14 @@ class NaiveMPC:
         opts_setting = {'ipopt.max_iter': 1000, 'ipopt.print_level': 0, 'print_time': 0, 'ipopt.acceptable_tol': 1e-8,
                         'ipopt.acceptable_obj_change_tol': 1e-6}
 
-        opti.solver('ipopt', opts_setting)
+        opti.solver('ipopt')
         sol = opti.solve()
         u = sol.value(u_var[:, 0])
+        self.solve_time = time.time() - start_time
         return u
+
+    def get_solve_time(self):
+        return self.solve_time
 
     def vel_cmd_to_local_twist(self, vel_cmd):
         return ca.vertcat(vel_cmd[0], 0, vel_cmd[1])

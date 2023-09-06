@@ -134,6 +134,7 @@ def simulation(init_state, controller, traj_gen, env_type, gui=False):
     nTraj = ref_SE2.shape[1]
     store_state = np.zeros((3, nTraj))
     store_twist = np.zeros((2, nTraj))
+    store_solve_time = np.zeros(nTraj - 1)
     env.draw_ref_traj(ref_SE2)
     t = 0
     for i in range(nTraj - 1):
@@ -152,6 +153,7 @@ def simulation(init_state, controller, traj_gen, env_type, gui=False):
             curr_ref_twist = ref_twist[:, i]
             curr_ref_vel_cmd = np.array([curr_ref_twist[0], curr_ref_twist[2]])
             vel_cmd = controller.feedback_control(curr_state, curr_ref_state, curr_ref_vel_cmd)
+        store_solve_time[i] = controller.get_solve_time()
         # print('curr_state: ', curr_state)
         # print('xi: ', vel_cmd)
         # print('curr_twist:', env.get_twist())
@@ -161,7 +163,7 @@ def simulation(init_state, controller, traj_gen, env_type, gui=False):
     store_state[:, -1] = env.get_state()
     store_twist[:, -1] = env.get_twist()
 
-    return store_state, store_twist
+    return store_state, store_twist, store_solve_time
 
 
 if __name__ == '__main__':

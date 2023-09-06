@@ -42,6 +42,7 @@ class ErrorDynamicsMPC:
         self.Q = None
         self.R = None
         self.N = None
+        self.solve_time = 0.0
         self.setup_solver()
         self.set_ref_traj(ref_traj_config)
         self.setup_solver()
@@ -78,6 +79,8 @@ class ErrorDynamicsMPC:
         return:
             u: control input (v, w)
         """
+
+        start_time = time.time()
         if self.ref_SE2 is None:
             raise ValueError('Reference trajectory is not set up yet!')
 
@@ -94,7 +97,8 @@ class ErrorDynamicsMPC:
 
 
         # setup casadi solver
-        opti = ca.Opti()
+        opti = ca.Opti('conic')
+        # opti = ca.Opti()
         x_var = opti.variable(self.nState, N + 1)
         u_var = opti.variable(2, N)
 
@@ -130,15 +134,18 @@ class ErrorDynamicsMPC:
         opti.subject_to(u_var[1, :] <= self.w_max)
 
 
-        opts_setting = {'ipopt.max_iter': 1000, 'ipopt.print_level': 0, 'print_time': 0, 'ipopt.acceptable_tol': 1e-8,
-                        'ipopt.acceptable_obj_change_tol': 1e-6}
+        opts_setting = { 'printLevel': None}
         opti.minimize(cost)
-        opti.solver('ipopt', opts_setting)
+        opti.solver('qpoases',opts_setting)
         sol = opti.solve()
         psi_sol = sol.value(x_var)
         u_sol = sol.value(u_var)
-
+        end_time = time.time()
+        self.solve_time = end_time - start_time
         return u_sol[:, 0]
+
+    def get_solve_time(self):
+        return self.solve_time
 
     def vel_cmd_to_local_twist(self, vel_cmd):
         return ca.vertcat(vel_cmd[0], 0, vel_cmd[1])
