@@ -36,19 +36,26 @@ def main():
     t = 0
     store_solve_time = np.zeros(ref_state.shape[1]-1)
     for i in range(ref_state.shape[1] - 1):
+        # in physical experiment replace this with result from motion capture system
         curr_state = env.get_state()
+
         if controller.controllerType == ControllerType.NMPC:
             vel_cmd = controller.solve(curr_state, t)
         elif controller.controllerType == ControllerType.GMPC:
             curr_state = SE2(curr_state[0], curr_state[1], curr_state[2]).coeffs()
             vel_cmd = controller.solve(curr_state, t)
         store_solve_time[i] = controller.get_solve_time()
+
         print('curr_state: ', curr_state)
         print('xi: ', vel_cmd)
         print('curr_twist:', env.get_twist())
 
         t += dt
+        # in physical experiment replace this with sending velocity command to robot and sleep for dt
         env.step(env.vel_cmd_to_action(vel_cmd))
+
+        # set command
+        # time.sleep(0.02)
 
     np.save(ctrl_type.value + '_' + 'store_solve_time.npy', store_solve_time)
 
