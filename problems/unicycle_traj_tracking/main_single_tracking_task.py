@@ -17,9 +17,9 @@ def single_tracking_task():
               'param': {'start_state': np.array([1, 1, 0]),
                         'dt': 0.02,
                         'scale': 1,
-                        'nTraj': 300}}
+                        'nTraj': 30}}
     traj_gen = TrajGenerator(traj_config)
-    ref_SE2, ref_twist, dt = traj_gen.get_traj()
+    ref_state, ref_control, dt = traj_gen.get_traj()
     if controller_type == ControllerType.NMPC:
         controller = NaiveMPC(traj_config)
     elif controller_type == ControllerType.GMPC:
@@ -31,14 +31,13 @@ def single_tracking_task():
 
     # quartile chart
     plt.figure()
-    plt.boxplot(store_solve_time, 0,'',showmeans=True,
-                          vert=True)
+    plt.boxplot(store_solve_time, 0, '')
     plt.show()
 
     if not os.path.exists(os.path.join(os.path.dirname(__file__), 'data', 'single_tracking_task')):
         os.mkdir(os.path.join(os.path.dirname(__file__), 'data', 'single_tracking_task'))
     data_path = os.path.join(os.path.dirname(__file__), 'data', 'single_tracking_task')
-    file_path = os.path.join(data_path, 'store_solve_time.npy')
+    file_path = os.path.join(data_path, controller_type.value + '_' + 'store_solve_time.npy')
     np.save(file_path, store_solve_time)
 
 

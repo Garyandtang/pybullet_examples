@@ -19,7 +19,7 @@ def butterfly_tracking(env_type, controller_type):
                              'nTraj': 2500}}
 
     traj_gen = TrajGenerator(traj_config)
-    ref_SE2, ref_twist, dt = traj_gen.get_traj()
+    ref_state, ref_control, dt = traj_gen.get_traj()
     if controller_type == ControllerType.NMPC:
         controller = NaiveMPC(traj_config)
     elif controller_type == ControllerType.GMPC:
@@ -27,10 +27,10 @@ def butterfly_tracking(env_type, controller_type):
     elif controller_type == ControllerType.FEEDBACK_LINEARIZATION:
         controller = FBLinearizationController()
 
-    store_SE2, store_twist = simulation(init_state, controller, traj_gen, env_type, gui=False)
+    store_SE2, store_twist, _ = simulation(init_state, controller, traj_gen, env_type, gui=False)
 
     dir_name = env_type.value + '_' + controller_type.value
-    position_error, orientation_error = calulate_trajecotry_error(ref_SE2, store_SE2)
+    position_error, orientation_error = calulate_trajecotry_error(ref_state, store_SE2)
     # mkdir if not exist
     if not os.path.exists(os.path.join(os.path.dirname(__file__), 'data', 'butterfly_tracking', dir_name)):
         os.mkdir(os.path.join(os.path.dirname(__file__), 'data', 'butterfly_tracking', dir_name))
@@ -41,13 +41,13 @@ def butterfly_tracking(env_type, controller_type):
     file_path = os.path.join(data_path, 'orientation_error.npy')
     np.save(file_path, orientation_error)
     file_path = os.path.join(data_path, 'ref_SE2.npy')
-    np.save(file_path, ref_SE2)
+    np.save(file_path, ref_state)
     file_path = os.path.join(data_path, 'store_SE2.npy')
     np.save(file_path, store_SE2)
     file_path = os.path.join(data_path, 'store_twist.npy')
     np.save(file_path, store_twist)
     file_path = os.path.join(data_path, 'ref_twist.npy')
-    np.save(file_path, ref_twist)
+    np.save(file_path, ref_control)
 
 
 def main():

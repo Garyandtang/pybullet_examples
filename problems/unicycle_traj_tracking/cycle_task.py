@@ -1,6 +1,6 @@
 import time
-from envs.turtlebot.turtlebot import Turtlebot
-from envs.scout.scout_mini import ScoutMini
+from environments.wheeled_mobile_robot.scout.scout_mini import ScoutMini
+from environments.wheeled_mobile_robot.turtlebot.turtlebot import Turtlebot
 import numpy as np
 from utils.enum_class import CostType, DynamicsType, TrajType, ControllerType
 from naive_mpc import NaiveMPC
@@ -22,8 +22,8 @@ def main():
     # set solver
     traj_config = {'type': TrajType.CIRCLE,
                    'param': {'start_state': np.array([0, 0, 0]),
-                             'linear_vel': 0.8,
-                             'angular_vel': 0.8,
+                             'linear_vel': 0.3,
+                             'angular_vel': 0.3,
                              'nTraj': 1000,
                              'dt': 0.02}}
 
@@ -32,20 +32,18 @@ def main():
     traj_config = {'type': TrajType.EIGHT,
               'param': {'start_state': np.array([0, 0, 0]),
                         'dt': 0.02,
-                        'v_scale': 1.4,
-                        'w_scale': 1,
-                        'nTraj': 2500}}
+                        'nTraj': 1700}}
 
     traj_gen = TrajGenerator(traj_config)
-    ref_SE2, ref_twist, dt = traj_gen.get_traj()
+    ref_state, ref_control, dt = traj_gen.get_traj()
 
-    env.draw_ref_traj(ref_SE2)
+    env.draw_ref_traj(ref_state)
     controller = NaiveMPC(traj_config)
 
     # controller = FBLinearizationController()
-    controller.set_control_bound(v_min, v_max, w_min, w_max)
+    controller.set_control_bound()
     t = 0
-    for i in range(ref_SE2.shape[1] - 1):
+    for i in range(ref_state.shape[1] - 1):
         start = time.time()
         curr_state = env.get_state()
         if controller.controllerType == ControllerType.NMPC:
@@ -54,11 +52,8 @@ def main():
             curr_state = SE2(curr_state[0], curr_state[1], curr_state[2]).coeffs()
             vel_cmd = controller.solve(curr_state, t)
         elif controller.controllerType == ControllerType.FEEDBACK_LINEARIZATION:
-            curr_ref_SE2 = ref_SE2[:, i]
-            curr_ref_X = SE2(curr_ref_SE2)
-            curr_ref_state = np.array([curr_ref_X.x(), curr_ref_X.y(), curr_ref_X.angle()])
-            curr_ref_twist = ref_twist[:, i]
-            curr_ref_vel_cmd = np.array([curr_ref_twist[0], curr_ref_twist[2]])
+            curr_ref_state = ref_state[:, i]
+            curr_ref_vel_cmd = ref_control[:, i]
             vel_cmd = controller.feedback_control(curr_state, curr_ref_state, curr_ref_vel_cmd)
         print('curr_state: ', curr_state)
         print('xi: ', vel_cmd)

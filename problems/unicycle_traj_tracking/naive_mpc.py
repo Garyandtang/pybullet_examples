@@ -119,20 +119,7 @@ class NaiveMPC:
 
     def set_ref_traj(self, traj_config):
         traj_generator = TrajGenerator(traj_config)
-        ref_SE2, ref_twist, self.dt = traj_generator.get_traj()
-        self.ref_state = np.zeros((self.nState, ref_SE2.shape[1]))
-        # convert SE2 to x, y, theta
-        for i in range(ref_SE2.shape[1]):
-            self.ref_state[:2, i] = ref_SE2[:2, i]
-            self.ref_state[2, i] = SE2(ref_SE2[:, i]).angle()
-
-        # convert twist to v, w
-        self.ref_control = np.zeros((self.nControl, ref_twist.shape[1]))
-        for i in range(ref_twist.shape[1]):
-            self.ref_control[0, i] = ref_twist[0, i]
-            self.ref_control[1, i] = ref_twist[2, i]
-
-
+        self.ref_state, self.ref_control, self.dt = traj_generator.get_traj()
         self.nTraj = self.ref_state.shape[1]
 
     def get_curr_ref(self,t):

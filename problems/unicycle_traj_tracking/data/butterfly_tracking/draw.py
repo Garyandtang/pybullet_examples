@@ -79,7 +79,7 @@ def load_data_and_save_figure(data_path):
 
     plt.figure()
     if store_twist.shape[0] == 2:
-        plt.plot(t, ref_twist[2, :], label='reference angular velocity')
+        plt.plot(t, ref_twist[1, :], label='reference angular velocity')
         plt.plot(t, store_twist[1, :], label='actual angular velocity')
         plt.xlabel("$t$")
         plt.ylabel("$w$")

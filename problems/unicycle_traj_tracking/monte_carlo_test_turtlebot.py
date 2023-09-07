@@ -24,16 +24,16 @@ def main():
                              'nTraj': 500,
                              'dt': 0.02}}
     traj_gen = TrajGenerator(traj_config)
-    ref_SE2, ref_twist, dt = traj_gen.get_traj()
+    ref_state, ref_control, dt = traj_gen.get_traj()
     # store error
-    edmpc_position_error = np.zeros((mc_num, ref_SE2.shape[1]))
-    edmpc_orientation_error = np.zeros((mc_num, ref_SE2.shape[1]))
+    edmpc_position_error = np.zeros((mc_num, ref_state.shape[1]))
+    edmpc_orientation_error = np.zeros((mc_num, ref_state.shape[1]))
 
-    nmpc_position_error = np.zeros((mc_num, ref_SE2.shape[1]))
-    nmpc_orientation_error = np.zeros((mc_num, ref_SE2.shape[1]))
+    nmpc_position_error = np.zeros((mc_num, ref_state.shape[1]))
+    nmpc_orientation_error = np.zeros((mc_num, ref_state.shape[1]))
 
-    fb_position_error = np.zeros((mc_num, ref_SE2.shape[1]))
-    fb_orientation_error = np.zeros((mc_num, ref_SE2.shape[1]))
+    fb_position_error = np.zeros((mc_num, ref_state.shape[1]))
+    fb_orientation_error = np.zeros((mc_num, ref_state.shape[1]))
 
     for i in range(mc_num):
         # random init state
@@ -43,16 +43,16 @@ def main():
         init_state = np.array([init_x, init_y, init_theta])
         print('mc_num: ', i)
         controller = ErrorDynamicsMPC(traj_config)
-        store_SE2, store_twist = simulation(init_state, controller, traj_gen, env_type)
-        edmpc_position_error[i, :], edmpc_orientation_error[i, :] = calulate_trajecotry_error(ref_SE2, store_SE2)
+        store_state, store_control, _ = simulation(init_state, controller, traj_gen, env_type)
+        edmpc_position_error[i, :], edmpc_orientation_error[i, :] = calulate_trajecotry_error(ref_state, store_state)
 
         controller = NaiveMPC(traj_config)
-        store_SE2, store_twist = simulation(init_state, controller, traj_gen, env_type)
-        nmpc_position_error[i, :], nmpc_orientation_error[i, :] = calulate_trajecotry_error(ref_SE2, store_SE2)
+        store_state, store_control, _ = simulation(init_state, controller, traj_gen, env_type)
+        nmpc_position_error[i, :], nmpc_orientation_error[i, :] = calulate_trajecotry_error(ref_state, store_state)
 
         controller = FBLinearizationController()
-        store_SE2, store_twist = simulation(init_state, controller, traj_gen, env_type)
-        fb_position_error[i, :], fb_orientation_error[i, :] = calulate_trajecotry_error(ref_SE2, store_SE2)
+        store_state, store_control, _ = simulation(init_state, controller, traj_gen, env_type)
+        fb_position_error[i, :], fb_orientation_error[i, :] = calulate_trajecotry_error(ref_state, store_state)
 
     # plot
     plt.figure()
@@ -110,7 +110,7 @@ def calulate_trajecotry_error(ref_SE2, store_SE2):
     position_error = np.linalg.norm(store_SE2[:2, :] - ref_SE2[:2, :], axis=0)
     orientation_error = np.zeros(ref_SE2.shape[1])
     for i in range(ref_SE2.shape[1]):
-        ref_angle = SE2(ref_SE2[:, i]).angle()
+        ref_angle = ref_SE2[2, i]
         so2_error = SO2(store_SE2[2, i]).between(SO2(ref_angle)).log().coeffs()
         orientation_error[i] = scipy.linalg.norm(so2_error[0])
     return position_error, orientation_error
@@ -125,33 +125,30 @@ def simulation(init_state, controller, traj_gen, env_type, gui=False):
     else:
         raise NotImplementedError
     v_min, v_max, w_min, w_max = env.get_vel_cmd_limit()
-    ref_SE2, ref_twist, dt = traj_gen.get_traj()
+    ref_state, ref_control, dt = traj_gen.get_traj()
 
     # set controller limits
     controller.set_control_bound(v_min, v_max, w_min, w_max)
 
     # store simulation traj
-    nTraj = ref_SE2.shape[1]
+    nTraj = ref_state.shape[1]
     store_state = np.zeros((3, nTraj))
-    store_twist = np.zeros((2, nTraj))
+    store_control = np.zeros((2, nTraj))
     store_solve_time = np.zeros(nTraj - 1)
-    env.draw_ref_traj(ref_SE2)
+    env.draw_ref_traj(ref_state)
     t = 0
     for i in range(nTraj - 1):
         curr_state = env.get_state()
         store_state[:, i] = curr_state
-        store_twist[:, i] = env.get_twist()
+        store_control[:, i] = env.get_twist()
         if controller.controllerType == ControllerType.NMPC:
             vel_cmd = controller.solve(curr_state, t)
         elif controller.controllerType == ControllerType.GMPC:
             curr_state = SE2(curr_state[0], curr_state[1], curr_state[2]).coeffs()
             vel_cmd = controller.solve(curr_state, t)
         elif controller.controllerType == ControllerType.FEEDBACK_LINEARIZATION:
-            curr_ref_SE2 = ref_SE2[:, i]
-            curr_ref_X = SE2(curr_ref_SE2)
-            curr_ref_state = np.array([curr_ref_X.x(), curr_ref_X.y(), curr_ref_X.angle()])
-            curr_ref_twist = ref_twist[:, i]
-            curr_ref_vel_cmd = np.array([curr_ref_twist[0], curr_ref_twist[2]])
+            curr_ref_state = ref_state[:, i]
+            curr_ref_vel_cmd = ref_control[:, i]
             vel_cmd = controller.feedback_control(curr_state, curr_ref_state, curr_ref_vel_cmd)
         store_solve_time[i] = controller.get_solve_time()
         # print('curr_state: ', curr_state)
@@ -161,9 +158,9 @@ def simulation(init_state, controller, traj_gen, env_type, gui=False):
         env.step(env.vel_cmd_to_action(vel_cmd))
 
     store_state[:, -1] = env.get_state()
-    store_twist[:, -1] = env.get_twist()
+    store_control[:, -1] = env.get_twist()
 
-    return store_state, store_twist, store_solve_time
+    return store_state, store_control, store_solve_time
 
 
 if __name__ == '__main__':

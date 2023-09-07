@@ -69,12 +69,12 @@ def nmpc_simulation(traj_generator, controller, init_state):
 
 def feedback_linearization_simulation(traj_generator, controller, init_state):
     init_SE2 = SE2(init_state[0], init_state[1], init_state[2])
-    ref_SE2, ref_twist, dt = traj_generator.get_traj()
+    ref_state, ref_control, dt = traj_generator.get_traj()
 
     # container for recording SE2 state and twist
     nSE2 = 4
     nTwist = 3
-    nTraj = ref_SE2.shape[1]
+    nTraj = ref_state.shape[1]
     store_SE2 = np.zeros((nSE2, nTraj))
     store_twist = np.zeros((nTwist, nTraj))
     store_SE2[:, 0] = init_SE2.coeffs()
@@ -83,12 +83,10 @@ def feedback_linearization_simulation(traj_generator, controller, init_state):
     for i in range(nTraj - 1):
         curr_SE2 = store_SE2[:, i]
         curr_X = SE2(curr_SE2)
-        ref_X = SE2(ref_SE2[:, i])
-        ref_state = np.array([ref_X.x(), ref_X.y(), ref_X.angle()])
-        curr_ref_twist = ref_twist[:, i]
-        curr_ref_vel_cmd = np.array([curr_ref_twist[0],curr_ref_twist[2]])
+        ref_state_ = ref_state[:, i]
+        curr_ref_vel_cmd = ref_control[:, i]
         curr_state = np.array([curr_X.x(), curr_X.y(), curr_X.angle()])
-        curr_vel_cmd = controller.feedback_control(curr_state, ref_state, curr_ref_vel_cmd)
+        curr_vel_cmd = controller.feedback_control(curr_state, ref_state_, curr_ref_vel_cmd)
         curr_twist = np.array([curr_vel_cmd[0], 0, curr_vel_cmd[1]])
 
         next_X = curr_X + SE2Tangent(curr_twist) * dt
@@ -121,7 +119,7 @@ def main():
                         'scale': 1,
                         'nTraj': 300}}
     traj_generator = TrajGenerator(traj_config)
-    ref_SE2, ref_twist, dt = traj_generator.get_traj()
+    ref_state, ref_control, dt = traj_generator.get_traj()
 
     model_config = {'cost_type': CostType.POSITION,
                     'dynamics_type': DynamicsType.EULER_FIRST_ORDER}
@@ -143,7 +141,7 @@ def main():
 
     # plot the result
     plt.figure()
-    plt.plot(ref_SE2[0, :], ref_SE2[1, :], 'b', label='reference')
+    plt.plot(ref_state[0, :], ref_state[1, :], 'b', label='reference')
     plt.plot(SE2_store_ed[0, :], SE2_store_ed[1, :], 'r', label='edmpc')
     plt.plot(SE2_store_nmpc[0, :], SE2_store_nmpc[1, :], 'g', label='nmpc')
     plt.plot(SE2_store_fb[0, :], SE2_store_fb[1, :], 'k', label='fb')
@@ -151,9 +149,9 @@ def main():
     plt.show()
 
     # plot the error
-    error = np.linalg.norm(SE2_store_ed[0:2, :] - ref_SE2[0:2, :], axis=0)
-    error_nmpc = np.linalg.norm(SE2_store_nmpc[0:2, :] - ref_SE2[0:2, :], axis=0)
-    error_fb = np.linalg.norm(SE2_store_fb[0:2, :] - ref_SE2[0:2, :], axis=0)
+    error = np.linalg.norm(SE2_store_ed[0:2, :] - ref_state[0:2, :], axis=0)
+    error_nmpc = np.linalg.norm(SE2_store_nmpc[0:2, :] - ref_state[0:2, :], axis=0)
+    error_fb = np.linalg.norm(SE2_store_fb[0:2, :] - ref_state[0:2, :], axis=0)
     plt.figure()
     plt.plot(error, label='edmpc')
     plt.plot(error_nmpc, label='nmpc')
@@ -163,23 +161,23 @@ def main():
     plt.show()
 
     # plot orientation error
-    orientation_error_ed = np.zeros(ref_SE2.shape[1])
-    for i in range(ref_SE2.shape[1]):
-        curr_ref_SE2 = SE2(ref_SE2[:, i])
+    orientation_error_ed = np.zeros(ref_state.shape[1])
+    for i in range(ref_state.shape[1]):
+        curr_ref_SE2 = SE2(ref_state[0, i], ref_state[1, i], ref_state[2, i])
         curr_SE2 = SE2(SE2_store_ed[:, i])
         orientation_error = SO2(curr_ref_SE2.angle()).between(SO2(curr_SE2.angle())).log().coeffs()
         orientation_error_ed[i] = scipy.linalg.norm(orientation_error)
 
-    orientation_error_nmpc = np.zeros(ref_SE2.shape[1])
-    for i in range(ref_SE2.shape[1]):
-        curr_ref_SE2 = SE2(ref_SE2[:, i])
+    orientation_error_nmpc = np.zeros(ref_state.shape[1])
+    for i in range(ref_state.shape[1]):
+        curr_ref_SE2 = SE2(ref_state[0, i], ref_state[1, i], ref_state[2, i])
         curr_SE2 = SE2(SE2_store_nmpc[:, i])
         orientation_error = SO2(curr_ref_SE2.angle()).between(SO2(curr_SE2.angle())).log().coeffs()
         orientation_error_nmpc[i] = scipy.linalg.norm(orientation_error)
 
-    orientation_error_fb = np.zeros(ref_SE2.shape[1])
-    for i in range(ref_SE2.shape[1]):
-        curr_ref_SE2 = SE2(ref_SE2[:, i])
+    orientation_error_fb = np.zeros(ref_state.shape[1])
+    for i in range(ref_state.shape[1]):
+        curr_ref_SE2 = SE2(ref_state[0, i], ref_state[1, i], ref_state[2, i])
         curr_SE2 = SE2(SE2_store_fb[:, i])
         orientation_error = SO2(curr_ref_SE2.angle()).between(SO2(curr_SE2.angle())).log().coeffs()
         orientation_error_fb[i] = scipy.linalg.norm(orientation_error)

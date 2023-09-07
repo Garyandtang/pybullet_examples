@@ -36,8 +36,8 @@ class ErrorDynamicsMPC:
         self.nControl = 2  # velocity control (v, w) R^2
         self.nTwist = 3  # twist (se2 vee) R^3
         self.nTraj = None
-        self.ref_SE2 = None
-        self.ref_twist = None
+        self.ref_state = None
+        self.ref_control = None
         self.dt = None
         self.Q = None
         self.R = None
@@ -50,8 +50,8 @@ class ErrorDynamicsMPC:
 
     def set_ref_traj(self, traj_config):
         traj_generator = TrajGenerator(traj_config)
-        self.ref_SE2, self.ref_twist, self.dt = traj_generator.get_traj()
-        self.nTraj = self.ref_SE2.shape[1]
+        self.ref_state, self.ref_control, self.dt = traj_generator.get_traj()
+        self.nTraj = self.ref_state.shape[1]
 
     def setup_solver(self, Q=1000, R=0.1, N=10):
         self.Q = Q * np.diag(np.ones(self.nState))
@@ -65,11 +65,6 @@ class ErrorDynamicsMPC:
         self.w_max = w_max
 
 
-    def get_curr_ref(self,t):
-        k = round(t / self.dt)
-        curr_ref_SE2_coeffs = self.ref_SE2[:, k]
-        curr_ref_twist_coeffs = self.ref_twist[:, k]
-        return curr_ref_SE2_coeffs, curr_ref_twist_coeffs
 
     def solve(self, SE2_coeffs, t):
         """
@@ -81,12 +76,12 @@ class ErrorDynamicsMPC:
         """
 
         start_time = time.time()
-        if self.ref_SE2 is None:
+        if self.ref_state is None:
             raise ValueError('Reference trajectory is not set up yet!')
 
         # get reference state and twist
         k = round(t / self.dt)
-        curr_ref_SE2_coeffs = self.ref_SE2[:, k]
+        curr_ref_SE2_coeffs = SE2(self.ref_state[0, k], self.ref_state[1, k], self.ref_state[2, k]).coeffs()
 
         # get x init by calculating log between current state and reference state
         x_init = SE2(curr_ref_SE2_coeffs).between(SE2(SE2_coeffs)).log().coeffs()
@@ -109,7 +104,8 @@ class ErrorDynamicsMPC:
         # x_next = A * x + B * u + h
         for i in range(N):
             index = min(k + i, self.nTraj - 1)
-            u_d = self.ref_twist[:, index]  # desir
+            u_d = self.ref_control[:, index]  # desir
+            u_d = self.vel_cmd_to_local_twist(u_d)
             A = -SE2Tangent(u_d).smallAdj()
             B = np.eye(self.nTwist)
             h = -u_d
@@ -120,8 +116,7 @@ class ErrorDynamicsMPC:
         cost = 0
         for i in range(N):
             index = min(k + i, self.nTraj - 1)
-            twist_ref = self.ref_twist[:, index]
-            u_d = self.local_twist_to_vel_cmd(twist_ref)
+            u_d = self.ref_control[:, index]
             cost += ca.mtimes([x_var[:, i].T, Q, x_var[:, i]]) + ca.mtimes(
                 [(u_var[:, i]-u_d).T, R, (u_var[:, i]-u_d)])
 

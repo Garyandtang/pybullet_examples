@@ -2,11 +2,13 @@ from abc import ABC, abstractmethod
 import pybullet as p
 import pybullet_data
 import numpy as np
+
+
 class WheeledMobileRobot(ABC):
     def __init__(self,
                  init_state: np.ndarray = None,
-            gui: bool = True,
-              debug: bool = True):
+                 gui: bool = True,
+                 debug: bool = True):
         self.GUI = gui
         self.DEBUG = debug
         self.CTRL_FREQ = 50  # control frequency
@@ -37,6 +39,7 @@ class WheeledMobileRobot(ABC):
             raise ValueError('[ERROR] in turtlebot.__init__(), init_state, type: {}, size: {}'.format(type(init_state),
                                                                                                       len(init_state)))
         self.v_min, self.v_max, self.w_min, self.w_max = None, None, None, None
+
     @abstractmethod
     def reset(self):
         raise NotImplementedError
@@ -57,6 +60,7 @@ class WheeledMobileRobot(ABC):
         vel = p.getBaseVelocity(self.robot, physicsClientId=self.PYB_CLIENT)
         self.twist = np.array([np.sqrt(vel[0][0] ** 2 + vel[0][1] ** 2), vel[1][2]])
         return self.twist
+
     def draw_point(self, point):
         if not self.DEBUG or not self.GUI:
             return
@@ -95,5 +99,3 @@ class WheeledMobileRobot(ABC):
         elif w > self.w_max:
             w = self.w_max
         return v, w
-
-
