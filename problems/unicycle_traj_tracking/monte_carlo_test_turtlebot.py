@@ -112,7 +112,7 @@ def calulate_trajecotry_error(ref_SE2, store_SE2):
     for i in range(ref_SE2.shape[1]):
         ref_angle = ref_SE2[2, i]
         curr_angle = store_SE2[2, i]
-        so2_error = SO2(curr_angle).between(SO2(ref_angle)) - SO2(ref_angle).between(SO2(ref_angle))
+        so2_error = 0.5*(SO2(curr_angle).between(SO2(ref_angle)) - SO2(ref_angle).between(SO2(ref_angle)))
         orientation_error[i] = scipy.linalg.norm(so2_error.coeffs())
     return position_error, orientation_error
 
