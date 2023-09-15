@@ -37,9 +37,9 @@ def main():
 
     for i in range(mc_num):
         # random init state
-        init_x = np.random.uniform(-0.2, 0.2)
-        init_y = np.random.uniform(-0.2, 0.2)
-        init_theta = np.random.uniform(-np.pi / 4, np.pi / 4)
+        init_x = np.random.uniform(-0.15, 0.15)
+        init_y = np.random.uniform(-0.15, 0.15)
+        init_theta = np.random.uniform(-np.pi / 6, np.pi / 6)
         init_state = np.array([init_x, init_y, init_theta])
         print('mc_num: ', i)
         controller = ErrorDynamicsMPC(traj_config)
@@ -112,8 +112,8 @@ def calulate_trajecotry_error(ref_SE2, store_SE2):
     for i in range(ref_SE2.shape[1]):
         ref_angle = ref_SE2[2, i]
         curr_angle = store_SE2[2, i]
-        so2_error = 0.5*(SO2(curr_angle).between(SO2(ref_angle)) - SO2(ref_angle).between(SO2(ref_angle)))
-        orientation_error[i] = scipy.linalg.norm(so2_error.coeffs())
+        so2_error = SO2(store_SE2[2, i]).between(SO2(ref_angle)).log().coeffs()
+        orientation_error[i] = scipy.linalg.norm(so2_error)
     return position_error, orientation_error
 
 
