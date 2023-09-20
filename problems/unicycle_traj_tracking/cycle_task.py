@@ -13,8 +13,8 @@ from matplotlib import pyplot as plt
 
 def main():
     init_state = np.array([0, 0, 0])
-    controller_type = ControllerType.NMPC
-    env_type = EnvType.TURTLEBOT
+    controller_type = ControllerType.GMPC
+    env_type = EnvType.SCOUT_MINI
     # set solver
     traj_config = {'type': TrajType.CIRCLE,
                    'param': {'start_state': np.array([0, 0, 0]),
@@ -23,11 +23,11 @@ def main():
                              'nTraj': 200,
                              'dt': 0.02}}
 
-    # # figure of eight
-    # traj_config = {'type': TrajType.EIGHT,
-    #           'param': {'start_state': np.array([0, 0, 0]),
-    #                     'dt': 0.02,
-    #                     'nTraj': 1700}}
+    # figure of eight
+    traj_config = {'type': TrajType.EIGHT,
+              'param': {'start_state': np.array([0, 0, 0]),
+                        'dt': 0.02,
+                        'nTraj': 1700}}
 
     if controller_type == ControllerType.NMPC:
         controller = NaiveMPC(traj_config)
@@ -39,7 +39,7 @@ def main():
     traj_gen = TrajGenerator(traj_config)
     ref_state, ref_control, dt = traj_gen.get_traj()
 
-    store_state, store_control, store_solve_time = simulation(init_state, controller, traj_gen, env_type, gui=False)
+    store_state, store_control, store_solve_time = simulation(init_state, controller, traj_gen, env_type, gui=True)
 
     # plot linear velocity
     plt.figure()

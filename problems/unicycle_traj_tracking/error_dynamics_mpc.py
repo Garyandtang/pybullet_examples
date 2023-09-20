@@ -53,7 +53,7 @@ class ErrorDynamicsMPC:
         self.ref_state, self.ref_control, self.dt = traj_generator.get_traj()
         self.nTraj = self.ref_state.shape[1]
 
-    def setup_solver(self, Q=1000, R=0.1, N=10):
+    def setup_solver(self, Q=10000, R=0.1, N=10):
         self.Q = Q * np.diag(np.ones(self.nState))
         self.R = R * np.diag(np.ones(self.nControl))
         self.N = N
@@ -106,7 +106,7 @@ class ErrorDynamicsMPC:
             index = min(k + i, self.nTraj - 1)
             u_d = self.ref_control[:, index]  # desir
             u_d = self.vel_cmd_to_local_twist(u_d)
-            A = -SE2Tangent(u_d).smallAdj()
+            A = -SE2Tangent(u_d).hat()
             B = np.eye(self.nTwist)
             h = -u_d
             x_next = x_var[:, i] + dt * (A @ x_var[:, i] + B @ self.vel_cmd_to_local_twist(u_var[:, i]) + h)
