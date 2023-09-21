@@ -41,6 +41,10 @@ class EnvType(str, Enum):
     TURTLEBOT = 'turtlebot'
     SCOUT_MINI = 'scout_mini'
 
+class LiniearizationType(str, Enum):
+    ADJ = 'adj'
+    WEDGE = 'wedge'
+
 if __name__ == '__main__':
     print(Task.STABILIZATION)
     print(type(Task.STABILIZATION.value))

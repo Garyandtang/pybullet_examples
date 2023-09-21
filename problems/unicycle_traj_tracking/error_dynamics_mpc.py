@@ -6,7 +6,7 @@ from manifpy import SE2, SE2Tangent, SO2, SO2Tangent
 import casadi as ca
 import math
 from ref_traj_generator import TrajGenerator
-from utils.enum_class import TrajType, ControllerType
+from utils.enum_class import TrajType, ControllerType, LiniearizationType
 from naive_mpc import NaiveMPC
 """
 this ErrorDynamicsMPC class is used to solve tracking problem of uni-cycle model
@@ -30,7 +30,7 @@ the reference trajectory is generated using TrajGenerator class in ref_traj_gene
 
 
 class ErrorDynamicsMPC:
-    def __init__(self, ref_traj_config):
+    def __init__(self, ref_traj_config, linearization_type=LiniearizationType.ADJ):
         self.controllerType = ControllerType.GMPC
         self.nState = 3  # twist error (se2 vee) R^3
         self.nControl = 2  # velocity control (v, w) R^2
@@ -42,18 +42,20 @@ class ErrorDynamicsMPC:
         self.Q = None
         self.R = None
         self.N = None
+        self.linearizationType = linearization_type
         self.solve_time = 0.0
         self.setup_solver()
         self.set_ref_traj(ref_traj_config)
         self.setup_solver()
         self.set_control_bound()
 
+
     def set_ref_traj(self, traj_config):
         traj_generator = TrajGenerator(traj_config)
         self.ref_state, self.ref_control, self.dt = traj_generator.get_traj()
         self.nTraj = self.ref_state.shape[1]
 
-    def setup_solver(self, Q=10000, R=0.1, N=10):
+    def setup_solver(self, Q=1000, R=0.1, N=10):
         self.Q = Q * np.diag(np.ones(self.nState))
         self.R = R * np.diag(np.ones(self.nControl))
         self.N = N
@@ -106,7 +108,10 @@ class ErrorDynamicsMPC:
             index = min(k + i, self.nTraj - 1)
             u_d = self.ref_control[:, index]  # desir
             u_d = self.vel_cmd_to_local_twist(u_d)
-            A = -SE2Tangent(u_d).hat()
+            if self.linearizationType == LiniearizationType.ADJ:
+                A = -SE2Tangent(u_d).smallAdj()
+            elif self.linearizationType == LiniearizationType.WEDGE:
+                A = -SE2Tangent(u_d).hat()
             B = np.eye(self.nTwist)
             h = -u_d
             x_next = x_var[:, i] + dt * (A @ x_var[:, i] + B @ self.vel_cmd_to_local_twist(u_var[:, i]) + h)
