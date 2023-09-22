@@ -13,7 +13,7 @@ from matplotlib import pyplot as plt
 
 def main():
     init_state = np.array([0, 0, 0])
-    controller_type = ControllerType.GMPC
+    controller_type = ControllerType.FEEDBACK_LINEARIZATION
     env_type = EnvType.SCOUT_MINI
     # set solver
     traj_config = {'type': TrajType.CIRCLE,

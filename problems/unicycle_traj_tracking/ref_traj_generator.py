@@ -94,12 +94,11 @@ class TrajGenerator:
         #                     'nTraj': 170}}
         self.dt = config['dt']
         self.nTraj = config['nTraj']
-        self.ref_SE2 = np.zeros((self.nSE2, self.nTraj))
+        self.ref_state = np.zeros((self.nState, self.nTraj))  # [x, y, theta]
+        self.ref_control = np.zeros((self.nControl, self.nTraj))  # [v, w]
         end_state = config['end_state']
-        end_SE2_coeffs = SE2(end_state[0], end_state[1], end_state[2]).coeffs()
         for i in range(self.nTraj):
-            self.ref_SE2[:, i] = end_SE2_coeffs
-        self.ref_twist = np.zeros((self.nTwist, self.nTraj))
+            self.ref_state[:, i] = end_state
 
 
     def generate_time_vary_traj(self, config):
