@@ -12,22 +12,22 @@ from monte_carlo_test_turtlebot import simulation, calulate_trajecotry_error
 from matplotlib import pyplot as plt
 
 def main():
-    init_state = np.array([0, 0, 0])
+    init_state = np.array([-0.1, -0.1, 0])
     controller_type = ControllerType.FEEDBACK_LINEARIZATION
-    env_type = EnvType.SCOUT_MINI
+    env_type = EnvType.TURTLEBOT
     # set solver
     traj_config = {'type': TrajType.CIRCLE,
                    'param': {'start_state': np.array([0, 0, 0]),
                              'linear_vel': 0.3,
                              'angular_vel': 0.3,
-                             'nTraj': 200,
+                             'nTraj': 800,
                              'dt': 0.02}}
 
     # figure of eight
-    traj_config = {'type': TrajType.EIGHT,
-              'param': {'start_state': np.array([0, 0, 0]),
-                        'dt': 0.02,
-                        'nTraj': 1700}}
+    # traj_config = {'type': TrajType.EIGHT,
+    #           'param': {'start_state': np.array([0, 0, 0]),
+    #                     'dt': 0.02,
+    #                     'nTraj': 1700}}
 
     if controller_type == ControllerType.NMPC:
         controller = NaiveMPC(traj_config)
@@ -47,6 +47,24 @@ def main():
     plt.plot(store_control[1, :], label='angular velocity')
     plt.legend()
     plt.show()
+
+    # plot trajectory
+    plt.figure()
+    plt.plot(store_state[0, :], store_state[1, :], label='trajectory')
+    plt.plot(ref_state[0, :], ref_state[1, :], label='reference trajectory')
+    plt.legend()
+    plt.show()
+
+    # plot error
+    position_error, orientation_error = calulate_trajecotry_error(store_state, ref_state)
+
+    plt.figure()
+    plt.plot(position_error, label='position error')
+    plt.show()
+    plt.figure()
+    plt.plot(orientation_error, label='orientation error')
+    plt.show()
+
 
 
 
