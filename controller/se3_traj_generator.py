@@ -2,7 +2,7 @@ import numpy as np
 import scipy.linalg
 import time
 import matplotlib.pyplot as plt
-from manifpy import SE2, SE2Tangent, SO2, SO2Tangent
+from manifpy import SE2, SE2Tangent, SO2, SO2Tangent, SO3, SO3Tangent
 import casadi as ca
 import math
 from utils.enum_class import TrajType
@@ -32,16 +32,21 @@ class SE3TrajGenerator:
     def generate_pose_regulation_traj(self, config):
         # example of pose regulation config
         # config = {'type': TrajType.POSE_REGULATION,
-        #           'param': {'end_state': np.array([0, 0, 0]),
+        #           'param': {'end_pos': np.array([0, 0, 0]),
+        #                     'end_euler': np.array([0, 0, 0]),
         #                     'dt': 0.05,
         #                     'nTraj': 170}}
+        end_pos = config['end_pos']
+        end_euler = config['end_euler']
+        end_SO3 = SO3(end_euler[0], end_euler[1], end_euler[2])
+        end_quat = end_SO3.quat().flatten()
         self.dt = config['dt']
         self.nTraj = config['nTraj']
-        self.ref_state = np.zeros((self.nState, self.nTraj))  # [x, y, theta]
-        self.ref_control = np.zeros((self.nControl, self.nTraj))  # [v, w]
-        end_state = config['end_state']
+        self.ref_state = np.zeros((self.nState, self.nTraj))  # [x, y, z, qx, qy, qz, qw]
+        self.ref_control = np.zeros((self.nControl, self.nTraj))  # [vx, vy, vz, wx, wy, wz]
         for i in range(self.nTraj):
-            self.ref_state[:, i] = end_state
+            self.ref_state[:3, i] = end_pos
+            self.ref_state[3:, i] = end_quat
 
 
     def generate_time_vary_traj(self, config):
@@ -88,69 +93,18 @@ class SE3TrajGenerator:
         return np.array([vel_cmd[0], 0, vel_cmd[1]])
 
 
+
 def test_traj_generator():
-    traj_config = {'type': TrajType.CIRCLE,
-                   'param': {'start_state': np.array([1, 1, np.pi]),
-                             'linear_vel': 0.5,
-                             'angular_vel': 0.5,
-                             'nTraj': 170,
-                             'dt': 0.05}}
-    traj_generator = TrajGenerator(traj_config)
-    ref_traj, ref_v, dt = traj_generator.get_traj()
-    plt.figure(1)
-    plt.plot(ref_traj[0, :], ref_traj[1, :], 'b')
-    plt.title('Reference Trajectory')
-    plt.show()
-
-    # convert to [x, y, theta]
-    traj = np.zeros((3, ref_traj.shape[1]))
-    for i in range(ref_traj.shape[1]):
-        X = SE2(ref_traj[0, i], ref_traj[1, i], ref_traj[2, i])
-        traj[:, i] = np.array([X.x(), X.y(), X.angle()])
-
-    plt.figure(2)
-    plt.plot(traj[0, :], traj[1, :], 'b')
-    plt.title('Reference Trajectory [x, y, theta]')
-    plt.show()
-
-
-def test_pose_regulation_traj_generator():
     config = {'type': TrajType.POSE_REGULATION,
-              'param': {'end_state': np.array([0, 0, 0]),
+              'param': {'end_pos': np.array([1, 2, 3]),
+                        'end_euler': np.array([1, 3, 2]),
                         'dt': 0.05,
                         'nTraj': 170}}
-    traj_generator = TrajGenerator(config)
-    ref_SE2, ref_twist, dt = traj_generator.get_traj()
-    plt.figure(1)
-    plt.plot(ref_SE2[0, :], ref_SE2[1, :], 'b')
-    plt.title('Reference Trajectory')
-    plt.show()
-
-def test_time_varying_traj_generator():
-    config = {'type': TrajType.TIME_VARYING,
-              'param': {'start_state': np.array([0, 0, 0]),
-                        'dt': 0.1,
-                        'nTraj': 3000}}
-    traj_generator = TrajGenerator(config)
-    ref_SE2, ref_twist, dt = traj_generator.get_traj()
-    plt.figure(1)
-    plt.plot(ref_SE2[0, :], ref_SE2[1, :], 'b')
-    plt.title('Reference Trajectory')
-    plt.show()
-
-def test_generate_eight_traj():
-    config = {'type': TrajType.EIGHT,
-              'param': {'start_state': np.array([1, 1, 0]),
-                        'dt': 0.02,
-                        'scale': 1,
-                        'nTraj': 3000}}
-    traj_generator = TrajGenerator(config)
-    ref_SE2, ref_twist, dt = traj_generator.get_traj()
-    plt.figure(1)
-    plt.plot(ref_SE2[0, :], ref_SE2[1, :], 'b')
-    plt.title('Reference Trajectory')
-    plt.show()
-
+    traj_generator = SE3TrajGenerator(config)
+    ref_state, ref_control, dt = traj_generator.get_traj()
+    print("ref_state: ", ref_state)
+    print("ref_control: ", ref_control)
+    print("dt: ", dt)
 
 if __name__ == '__main__':
     test_traj_generator()
