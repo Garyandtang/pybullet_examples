@@ -5,9 +5,9 @@ import matplotlib.pyplot as plt
 from manifpy import SE2, SE2Tangent, SO2, SO2Tangent
 import casadi as ca
 import math
-from ref_traj_generator import TrajGenerator
+from controller.ref_traj_generator import TrajGenerator
 from utils.enum_class import TrajType, ControllerType, LiniearizationType
-from naive_mpc import NaiveMPC
+
 """
 this ErrorDynamicsMPC class is used to solve tracking problem of uni-cycle model
 using MPC. The error dynamics is defined as follows:

@@ -1,13 +1,12 @@
-import time
 from environments.wheeled_mobile_robot.turtlebot.turtlebot import Turtlebot
 from environments.wheeled_mobile_robot.scout.scout_mini import ScoutMini
 import numpy as np
-from utils.enum_class import CostType, DynamicsType, TrajType, ControllerType, EnvType
-from naive_mpc import NaiveMPC
-from feedback_linearization import FBLinearizationController
-from error_dynamics_mpc import ErrorDynamicsMPC
-from ref_traj_generator import TrajGenerator
-from manifpy import SE2, SE2Tangent, SO2, SO2Tangent
+from utils.enum_class import TrajType, ControllerType, EnvType
+from controller.naive_mpc import NaiveMPC
+from controller.feedback_linearization import FBLinearizationController
+from controller.error_dynamics_mpc import ErrorDynamicsMPC
+from controller.ref_traj_generator import TrajGenerator
+from manifpy import SE2, SO2
 import matplotlib.pyplot as plt
 import scipy
 

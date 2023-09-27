@@ -1,15 +1,12 @@
-import time
 import sys
 sys.path.append("../..")
 from environments.wheeled_mobile_robot.scout.scout_mini import ScoutMini
-from environments.wheeled_mobile_robot.turtlebot.turtlebot import Turtlebot
 import numpy as np
-from utils.enum_class import CostType, DynamicsType, TrajType, ControllerType
-from naive_mpc import NaiveMPC
-from feedback_linearization import FBLinearizationController
-from error_dynamics_mpc import ErrorDynamicsMPC
-from ref_traj_generator import TrajGenerator
-from manifpy import SE2, SE2Tangent, SO2, SO2Tangent
+from utils.enum_class import TrajType, ControllerType
+from controller.naive_mpc import NaiveMPC
+from controller.error_dynamics_mpc import ErrorDynamicsMPC
+from controller.ref_traj_generator import TrajGenerator
+from manifpy import SE2
 import rospy
 import math
 from nav_msgs.msg import Odometry

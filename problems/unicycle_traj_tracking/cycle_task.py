@@ -1,19 +1,15 @@
-import time
-from environments.wheeled_mobile_robot.scout.scout_mini import ScoutMini
-from environments.wheeled_mobile_robot.turtlebot.turtlebot import Turtlebot
 import numpy as np
-from utils.enum_class import CostType, DynamicsType, TrajType, ControllerType, EnvType
-from naive_mpc import NaiveMPC
-from feedback_linearization import FBLinearizationController
-from error_dynamics_mpc import ErrorDynamicsMPC
-from ref_traj_generator import TrajGenerator
-from manifpy import SE2, SE2Tangent, SO2, SO2Tangent
+from utils.enum_class import TrajType, ControllerType, EnvType
+from controller.naive_mpc import NaiveMPC
+from controller.feedback_linearization import FBLinearizationController
+from controller.error_dynamics_mpc import ErrorDynamicsMPC
+from controller.ref_traj_generator import TrajGenerator
 from monte_carlo_test_turtlebot import simulation, calulate_trajecotry_error
 from matplotlib import pyplot as plt
 
 def main():
     init_state = np.array([-0.1, -0.1, 0])
-    controller_type = ControllerType.FEEDBACK_LINEARIZATION
+    controller_type = ControllerType.GMPC
     env_type = EnvType.TURTLEBOT
     # set solver
     traj_config = {'type': TrajType.CIRCLE,

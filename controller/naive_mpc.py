@@ -3,7 +3,7 @@ import scipy.linalg
 import matplotlib.pyplot as plt
 from manifpy import SE2, SE2Tangent, SO2, SO2Tangent
 import math
-from ref_traj_generator import TrajGenerator
+from controller.ref_traj_generator import TrajGenerator
 from utils.enum_class import TrajType, CostType, DynamicsType
 from controllers.lqr.lqr_utils import *
 import casadi as ca

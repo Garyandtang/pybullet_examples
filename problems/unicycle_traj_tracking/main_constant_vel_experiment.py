@@ -1,16 +1,12 @@
 import numpy as np
 import scipy.linalg
-import time
 import matplotlib.pyplot as plt
-from manifpy import SE2, SE2Tangent, SO2, SO2Tangent
-import casadi as ca
-import math
-from utils.enum_class import WMRType, TrajType
-from ref_traj_generator import TrajGenerator
-from feedback_linearization import FBLinearizationController
-from naive_mpc import NaiveMPC
-from error_dynamics_mpc import ErrorDynamicsMPC
-from utils.enum_class import WMRType, TrajType, CostType, DynamicsType
+from manifpy import SE2, SE2Tangent, SO2
+from controller.ref_traj_generator import TrajGenerator
+from controller.feedback_linearization import FBLinearizationController
+from controller.naive_mpc import NaiveMPC
+from controller.error_dynamics_mpc import ErrorDynamicsMPC
+from utils.enum_class import TrajType, CostType, DynamicsType
 
 
 def mpc_simulation(traj_generator, controller, init_state):
