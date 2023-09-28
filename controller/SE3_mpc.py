@@ -21,14 +21,14 @@ class SE3MPC:
         self.solve_time = 0.0
         self.setup_solver()
         self.set_ref_traj(ref_traj_config)
-        self.set_control_bound(-4, 4, -4, 4)
+        self.set_control_bound(-40, 40, -120, 100)
 
     def set_ref_traj(self, traj_config):
         traj_generator = SE3TrajGenerator(traj_config)
         self.ref_state, self.ref_control, self.dt = traj_generator.get_traj()
         self.nTraj = self.ref_state.shape[1]
 
-    def setup_solver(self, Q=1000, R=1, nPred=10):
+    def setup_solver(self, Q=100, R=1, nPred=10):
         self.Q = Q * np.diag(np.ones(self.nTwist))
         self.R = R * np.diag(np.ones(self.nTwist))
         self.nPred = nPred
@@ -101,7 +101,7 @@ class SE3MPC:
 
 def test_SE3MPC():
     config = {'type': TrajType.POSE_REGULATION,
-              'param': {'end_pos': np.array([0, 0, 0]),
+              'param': {'end_pos': np.array([1, 1, 0]),
                         'end_euler': np.array([0, 0, 0]),
                         'dt': 0.02,
                         'nTraj': 60}}
@@ -111,7 +111,7 @@ def test_SE3MPC():
     dt = controller.dt
     nTraj = controller.nTraj
 
-    init_state = np.array([1, 1, 1, 1, 0, 0, 0])
+    init_state = np.array([0, 0, 0, 1, 0, 0, 0])
     store_state = np.zeros((7, nTraj))
     store_control = np.zeros((6, nTraj - 1))
     store_state[:, 0] = init_state
@@ -150,6 +150,14 @@ def test_SE3MPC():
     ax.plot(store_control[5, :], label='w_z')
     ax.legend()
     plt.show()
+
+    # plot x y
+    fig = plt.figure()
+    ax = plt.figure().add_subplot()
+    ax.plot(store_state[0, :], store_state[1, :])
+    ax.plot(ref_state[0, :], ref_state[1, :], 'or')
+    plt.show()
+
 
 
 
