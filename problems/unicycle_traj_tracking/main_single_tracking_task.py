@@ -9,14 +9,14 @@ import os
 import matplotlib.pyplot as plt
 
 def single_tracking_task():
-    env_type = EnvType.TURTLEBOT
+    env_type = EnvType.SCOUT_MINI
     controller_type = ControllerType.GMPC
     init_state = np.array([0, 0, 0])
     traj_config = {'type': TrajType.EIGHT,
-              'param': {'start_state': np.array([1, 1, 0]),
+              'param': {'start_state': np.array([0, 0, 0]),
                         'dt': 0.02,
-                        'scale': 1,
-                        'nTraj': 30}}
+                        'scale': 2,
+                        'nTraj': 2500}}
     traj_gen = TrajGenerator(traj_config)
     ref_state, ref_control, dt = traj_gen.get_traj()
     if controller_type == ControllerType.NMPC:
@@ -26,7 +26,7 @@ def single_tracking_task():
     elif controller_type == ControllerType.FEEDBACK_LINEARIZATION:
         controller = FBLinearizationController()
 
-    store_SE2, store_twist, store_solve_time = simulation(init_state, controller, traj_gen, env_type, gui=False)
+    store_SE2, store_twist, store_solve_time = simulation(init_state, controller, traj_gen, env_type, gui=True)
 
     # quartile chart
     plt.figure()

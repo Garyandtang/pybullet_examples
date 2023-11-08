@@ -34,8 +34,8 @@ def main():
     root_dir = os.path.join(os.getcwd())
     # plot position error
     plt.figure()
-    plt.plot(t, position_error[:], label='Linearization Scheme in (20)')
-    plt.plot(t, position_error_1[:], label='Linearization Scheme in (19)')
+    plt.plot(t, position_error[:], label='Linearization Scheme in (17)')
+    plt.plot(t, position_error_1[:], label='Linearization Scheme in (16)')
     plt.xlabel("$t$")
     plt.ylabel("$e_p(t)$")
     plt.legend(fontsize=font_size)
@@ -45,8 +45,8 @@ def main():
 
     # plot orientation error
     plt.figure()
-    plt.plot(t, orientation_error[:], label='Linearization Scheme in (20)')
-    plt.plot(t, orientation_error_1[:], label='Linearization Scheme in (19)')
+    plt.plot(t, orientation_error[:], label='Linearization Scheme in (17)')
+    plt.plot(t, orientation_error_1[:], label='Linearization Scheme in (16)')
     plt.xlabel("$t$")
     plt.ylabel("$e_R(t)$")
     plt.tight_layout()
@@ -56,8 +56,8 @@ def main():
 
     # plot trajectory
     plt.figure()
-    plt.plot(store_state[0, :], store_state[1,:], label='trajectory with (20)')
-    plt.plot(store_state_1[0, :], store_state_1[1,:], label='trajectory with (19)')
+    plt.plot(store_state[0, :], store_state[1,:], label='trajectory with (17)')
+    plt.plot(store_state_1[0, :], store_state_1[1,:], label='trajectory with (16)')
     plt.plot(ref_state[0, :], ref_state[1,:], label='reference trajectory')
     plt.xlabel("$x$")
     plt.ylabel("$y$")
