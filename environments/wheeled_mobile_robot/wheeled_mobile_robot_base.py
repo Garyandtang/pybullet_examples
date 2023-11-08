@@ -2,9 +2,10 @@ from abc import ABC, abstractmethod
 import pybullet as p
 import pybullet_data
 import numpy as np
+import gym
 
 
-class WheeledMobileRobot(ABC):
+class WheeledMobileRobot(gym.Env, ABC):
     def __init__(self,
                  init_state: np.ndarray = None,
                  gui: bool = True,
@@ -83,6 +84,9 @@ class WheeledMobileRobot(ABC):
 
     @abstractmethod
     def _set_action_space(self):
+        raise NotImplementedError
+
+    def _actionSpace(self):
         raise NotImplementedError
 
     def get_vel_cmd_limit(self):

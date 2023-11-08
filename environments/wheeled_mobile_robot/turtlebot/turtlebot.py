@@ -12,7 +12,7 @@ import pybullet as p
 import pybullet_data
 from environments.wheeled_mobile_robot.wheeled_mobile_robot_base import WheeledMobileRobot
 from utils.symbolic_system import FirstOrderModel
-
+from gymnasium import spaces
 from functools import partial
 from utils.enum_class import CostType, DynamicsType
 
@@ -33,6 +33,8 @@ class Turtlebot(WheeledMobileRobot):
         self.length = 0.23  # length of the turtlebot
         self.width = 0.036  # width of the wheel of the turtlebot                                                                                            len(init_state)))
         self.reset()
+        self.action_space = spaces.Box(low=np.array([-10,-10]), high=np.array([10,10]), dtype=np.float32)
+        self.observation_space = spaces.Box(low=-np.array([-10,-10,-10]), high=np.array([10,10,10]), dtype=np.float32)
 
     def reset(self, seed=None):
         # reset the simulation
@@ -51,7 +53,7 @@ class Turtlebot(WheeledMobileRobot):
         p.resetJointState(self.robot, 0, 0, 0, physicsClientId=self.PYB_CLIENT)
         p.resetJointState(self.robot, 1, 0, 0, physicsClientId=self.PYB_CLIENT)
 
-        return self.get_state()
+        return self.get_state(), {}
 
     def calc_twist(self, action):
         # action: [v_l, v_r] in m/s left and right wheel velocity
@@ -93,7 +95,7 @@ class Turtlebot(WheeledMobileRobot):
         self.state = self.get_state()
 
         self.draw_point(self.state)
-        return self.state, None, None, None
+        return self.state, 1, None, None, {}
 
     def _denormalize_action(self, action):
         """ converts a normalized action into a physical action, only need in RL-based action
