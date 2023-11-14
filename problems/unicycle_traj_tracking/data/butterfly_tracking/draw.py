@@ -64,7 +64,7 @@ def load_data_and_save_figure(data_path):
     plt.ylabel("$y$",fontsize=font_size)
     plt.legend(fontsize=font_size)
     plt.tight_layout()
-    plt.savefig(os.path.join(data_path, name + '_trajectory.eps'))
+    plt.savefig(os.path.join(data_path, name + '_trajectory.jpg'))
     plt.show()
 
     plt.figure()
@@ -74,7 +74,7 @@ def load_data_and_save_figure(data_path):
     plt.ylabel("$v$",fontsize=font_size)
     plt.legend(fontsize=font_size)
     plt.tight_layout()
-    plt.savefig(os.path.join(data_path, name + '_linear_velocity.eps'))
+    plt.savefig(os.path.join(data_path, name + '_linear_velocity.jpg'))
     plt.show()
 
     plt.figure()
@@ -85,7 +85,7 @@ def load_data_and_save_figure(data_path):
         plt.ylabel("$w$")
         plt.legend(fontsize=font_size)
         plt.tight_layout()
-        plt.savefig(os.path.join(data_path, name + '_angular_velocity.eps'))
+        plt.savefig(os.path.join(data_path, name + '_angular_velocity.jpg'))
         plt.show()
     elif store_twist.shape[0] == 3:
         plt.plot(t, ref_twist[2, :], label='reference angular velocity')
@@ -94,7 +94,7 @@ def load_data_and_save_figure(data_path):
         plt.ylabel("$w$",fontsize=font_size)
         plt.legend(fontsize=font_size)
         plt.tight_layout()
-        plt.savefig(os.path.join(data_path, name + '_angular_velocity.eps'))
+        plt.savefig(os.path.join(data_path, name + '_angular_velocity.jpg'))
         plt.show()
 
 

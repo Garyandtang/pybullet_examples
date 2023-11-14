@@ -40,7 +40,7 @@ def main():
     plt.ylabel("$e_p(t)$")
     plt.legend(fontsize=font_size)
     plt.tight_layout()
-    plt.savefig(os.path.join(data_dir, 'position_error.eps'))
+    plt.savefig(os.path.join(data_dir, 'position_error.jpg'))
     plt.show()
 
     # plot orientation error
@@ -51,7 +51,7 @@ def main():
     plt.ylabel("$e_R(t)$")
     plt.tight_layout()
     plt.legend(fontsize=font_size)
-    plt.savefig(os.path.join(data_dir, 'orientation_error.eps'))
+    plt.savefig(os.path.join(data_dir, 'orientation_error.jpg'))
     plt.show()
 
     # plot trajectory
@@ -63,7 +63,7 @@ def main():
     plt.ylabel("$y$")
     plt.legend(fontsize=font_size)
     plt.tight_layout()
-    plt.savefig(os.path.join(data_dir, 'trajectory.eps'))
+    plt.savefig(os.path.join(data_dir, 'trajectory.jpg'))
     plt.show()
 
 

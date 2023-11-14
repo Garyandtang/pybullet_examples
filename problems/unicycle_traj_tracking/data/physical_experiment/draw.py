@@ -10,7 +10,7 @@ def main():
     plt.boxplot([gmpc_solver_time, nmpc_solver_time], labels=['GMPC', 'NMPC'],showfliers=False, patch_artist=True )
     plt.ylabel('Solve time (s)')
     plt.tight_layout()
-    plt.savefig('solve_time.eps')
+    plt.savefig('solve_time.jpg')
     plt.show()
 
 if __name__ == '__main__':
