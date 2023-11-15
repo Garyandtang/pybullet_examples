@@ -26,7 +26,7 @@ from gym.utils import seeding
 from utils.symbolic_system import FirstOrderModel
 from utils import utils
 
-from controllers.lqr.lqr import LQR
+# from controllers.lqr.lqr import LQR
 from utils.enum_class import Task
 from envs.base_env import BaseEnv
 from functools import partial
@@ -469,17 +469,17 @@ class CartPole(BaseEnv):
 if __name__ == '__main__':
     key_word = {'gui': False}
     env_func = partial(CartPole, **key_word)
-    q_lqr = [1]
-    r_lqr = [0.1]
-    lqr_controller = LQR(env_func=env_func, q_lqr=q_lqr, r_lqr=r_lqr, discrete_dynamics=True)
+    # q_lqr = [1]
+    # r_lqr = [0.1]
+    # lqr_controller = LQR(env_func=env_func, q_lqr=q_lqr, r_lqr=r_lqr, discrete_dynamics=True)
     print("start")
     cart_pole = CartPole(gui=True)
     cart_pole.reset()
     while 1:
         current_state = cart_pole.get_state()
-        action = lqr_controller.select_action(current_state)
-        print("action: {}".format(action))
-        cart_pole.step(action)
+        # action = lqr_controller.select_action(current_state)
+        # print("action: {}".format(action))
+        # cart_pole.step(action)
         print(cart_pole.get_state())
         time.sleep(0.1)
     print("cart pole dyn func: {}".format(cart_pole.symbolic.fc_func))
