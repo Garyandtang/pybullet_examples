@@ -143,6 +143,7 @@ class CartPole(BaseEnv):
             raise ValueError('[ERROR] in CartPole.__init__(), TASK TYPE')
 
         self._setup_symbolic()
+        self.observation_space = spaces.Box(low=-np.inf, high=np.inf, shape=(self.nState,), dtype=np.float32)
 
     def reset(self, seed=None):
         super().before_reset(seed=seed)
@@ -213,7 +214,7 @@ class CartPole(BaseEnv):
             targetVelocity=OVERRIDDEN_INIT_THETA_DOT,
             physicsClientId=self.PYB_CLIENT)
 
-        return self.get_state()
+        return self.get_state(), {}
 
     def step(self, action):
         """
@@ -231,7 +232,7 @@ class CartPole(BaseEnv):
 
         self.state = self.get_state()
 
-        return self.state, None, None, None
+        return self.state, {}, {}, {}, {}
 
     def _apply_force(self, force):
         """

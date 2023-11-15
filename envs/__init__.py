@@ -1,4 +1,15 @@
 '''Register environments.'''
+from gymnasium.envs.registration import register
+
+register(
+    id='Cartpole-v1',
+    entry_point='envs.cartpole.cartpole:CartPole',
+)
+# from envs.cartpole.cartpole import CartPole
+# register(
+#     id='cartpole-v1',
+#     entry_point='cartpole-pybullet.envs.cartpole.cartpole:CartPole',
+# )
 
 # from safe_control_gym.utils.registration import register
 #
