@@ -38,8 +38,8 @@ opti.subject_to(quat[:, 0] == SO3.Identity().as_quat())
 opti.subject_to(pos[:, 0] == np.array([0, 0, 0]).reshape(3, 1))
 
 # set final pose
-opti.subject_to(quat[:, N] == SO3.from_euler(np.array([np.pi, 0, 0])).as_quat())
-opti.subject_to(pos[:, N] == np.array([1, 1, 1]).reshape(3, 1))
+opti.subject_to(quat[:, N] == SO3.from_euler(np.array([0, 0, 0.9*np.pi])).as_quat())
+opti.subject_to(pos[:, N] == np.array([1, 1, 0]).reshape(3, 1))
 
 # # control bounds
 # opti.subject_to(opti.bounded(-1, T, 1))
@@ -52,12 +52,42 @@ try:
 except:
     print("Can't solve the problem!")
 
-# plot 3d xyz position
 pos_sol = sol.value(pos)
+
+quat_sol = sol.value(quat)
+# quat to euler
+euler_sol = np.zeros((3, N+1))
+for i in range(N+1):
+    euler_sol[:, i] = SO3.from_quat(quat_sol[:, i]).as_euler().full().reshape(3, )
+
+print(euler_sol)
+# plot euler angle
+fig = plt.figure()
+plt.plot(euler_sol[2, :], 'y')
+plt.title('euler angle')
+plt.show()
+
+
+print(max(pos_sol[2, :]) - min(pos_sol[2, :]))
+# plot 3d xyz position
 fig = plt.figure()
 ax = plt.figure().add_subplot(projection='3d')
-ax.plot(pos_sol[:, 0], pos_sol[:, 1], pos_sol[:, 2])
+# set x, y, z limit
+ax.set_xlim(-1, 2)
+ax.set_ylim(-1, 2)
+ax.set_zlim(-1, 2)
+ax.plot(pos_sol[0, :], pos_sol[1, :], pos_sol[2, :])
 ax.set_xlabel('x')
 ax.set_ylabel('y')
 ax.set_zlabel('z')
+plt.show()
+
+# plot 2d xy position
+fig = plt.figure()
+# x limit and y limit
+plt.xlim(-1, 2)
+plt.ylim(-1, 2)
+plt.plot(pos_sol[0, :], pos_sol[1, :])
+plt.xlabel('x')
+plt.ylabel('y')
 plt.show()
