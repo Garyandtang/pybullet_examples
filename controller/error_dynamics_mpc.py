@@ -234,10 +234,11 @@ def test_pose_regulation():
     #                     'nTraj': 670}}
     # traj_generator = TrajGenerator(config)
     init_state = np.array([1, 1, 0])
-    config = {'type': TrajType.TIME_VARYING,
-              'param': {'start_state': np.array([1, 1, 0]),
-                        'dt': 0.02,
-                        'nTraj': 200}}
+    end_state = np.array([0, 0, 0])
+    config = {'type': TrajType.POSE_REGULATION,
+              'param': {'end_state': end_state,
+                        'dt': 0.05,
+                        'nTraj': 170}}
     traj_generator = TrajGenerator(config)
     ref_SE2, ref_twist, dt = traj_generator.get_traj()
     mpc = ErrorDynamicsMPC(config)
@@ -256,7 +257,7 @@ def test_pose_regulation():
         X = SE2(curr_SE2)
         # curr_vel_cmd = mpc.solve(np.array([X.x(),X.y(),X.angle()]),t)
         curr_vel_cmd = mpc.solve(curr_SE2, t)
-        curr_twist = mpc._to_local_twist(curr_vel_cmd)
+        curr_twist = mpc.vel_cmd_to_local_twist(curr_vel_cmd)
         store_twist[:, i] = curr_twist.full().flatten()
         # next SE2 state
         next_SE2 = SE2(curr_SE2) + SE2Tangent(curr_twist) * dt
@@ -266,7 +267,12 @@ def test_pose_regulation():
     # plot
     plt.figure()
     plt.plot(store_SE2[0, :], store_SE2[1, :], 'b')
-    plt.plot(ref_SE2[0, :], ref_SE2[1, :], 'r')
+    # draw end state
+    plt.plot(end_state[0], end_state[1], 'r*')
+    # draw start state
+    plt.plot(init_state[0], init_state[1], 'g*')
+
+
     plt.show()
 
     # # plot (x, y, theta) pose figure with arrow
@@ -283,20 +289,20 @@ def test_pose_regulation():
     plt.title('distance error')
     plt.show()
 
-    # plot angle error
-    plt.figure()
-    orientation_store = np.zeros(ref_SE2.shape[1])
-    for i in range(ref_SE2.shape[1]):
-        X_d = SE2(ref_SE2[:, i])
-        X = SE2(store_SE2[:, i])
-        X_d_inv_X = SO2(X_d.angle()).between(SO2(X.angle()))
-        orientation_store[i] = scipy.linalg.norm(X_d_inv_X.log().coeffs())
-
-    plt.figure()
-    plt.plot(orientation_store[0:])
-    plt.title('orientation difference')
-    plt.show()
+    # # plot angle error
+    # plt.figure()
+    # orientation_store = np.zeros(ref_SE2.shape[1])
+    # for i in range(ref_SE2.shape[1]):
+    #     X_d = SE2(ref_SE2[:, i])
+    #     X = SE2(store_SE2[:, i])
+    #     X_d_inv_X = SO2(X_d.angle()).between(SO2(X.angle()))
+    #     orientation_store[i] = scipy.linalg.norm(X_d_inv_X.log().coeffs())
+    #
+    # plt.figure()
+    # plt.plot(orientation_store[0:])
+    # plt.title('orientation difference')
+    # plt.show()
 
 if __name__ == '__main__':
     # test_generate_ref_traj()
-    test_mpc()
+    test_pose_regulation()
