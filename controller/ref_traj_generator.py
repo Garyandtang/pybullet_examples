@@ -7,6 +7,14 @@ import casadi as ca
 import math
 from utils.enum_class import TrajType
 
+class PlannerManager:
+
+    def __init__(self, config):
+        self.traj_generator = TrajGenerator(config)
+        self.ref_state, self.ref_control, self.dt = self.traj_generator.get_traj()
+        self.nTraj = self.ref_state.shape[1]
+
+
 
 class TrajGenerator:
     def __init__(self, config):

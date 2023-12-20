@@ -84,7 +84,6 @@ def main():
         if controller.controllerType == ControllerType.NMPC:
             vel_cmd = controller.solve(curr_state, t)
         elif controller.controllerType == ControllerType.GMPC:
-            curr_state = SE2(curr_state[0], curr_state[1], curr_state[2]).coeffs()
             vel_cmd = controller.solve(curr_state, t)
         store_solve_time[i] = controller.get_solve_time()
 

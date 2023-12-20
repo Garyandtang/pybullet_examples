@@ -68,9 +68,9 @@ class ErrorDynamicsMPC:
 
 
 
-    def solve(self, SE2_coeffs, t):
+    def solve(self, current_state, t):
         """
-        SE2_coeffs: [x, y, cos(theta), sin(theta)] (SE2 coeffs of current state)
+        current_state: current state of the system (x, y, theta)
         t: time -> index of reference trajectory (t = k * dt)
 
         return:
@@ -83,10 +83,9 @@ class ErrorDynamicsMPC:
 
         # get reference state and twist
         k = round(t / self.dt)
-        curr_ref_SE2_coeffs = SE2(self.ref_state[0, k], self.ref_state[1, k], self.ref_state[2, k]).coeffs()
-
+        curr_ref = self.ref_state[:, k]
         # get x init by calculating log between current state and reference state
-        x_init = SE2(curr_ref_SE2_coeffs).between(SE2(SE2_coeffs)).log().coeffs()
+        x_init = SE2(curr_ref[0], curr_ref[1], curr_ref[2]).between(SE2(current_state[0], current_state[1], current_state[2])).log().coeffs()
         Q = self.Q
         R = self.R
         N = self.N

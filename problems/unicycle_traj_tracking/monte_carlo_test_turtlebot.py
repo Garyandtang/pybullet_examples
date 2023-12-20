@@ -144,7 +144,6 @@ def simulation(init_state, controller, traj_gen, env_type, gui=False):
         if controller.controllerType == ControllerType.NMPC:
             vel_cmd = controller.solve(curr_state, t)
         elif controller.controllerType == ControllerType.GMPC:
-            curr_state = SE2(curr_state[0], curr_state[1], curr_state[2]).coeffs()
             vel_cmd = controller.solve(curr_state, t)
         elif controller.controllerType == ControllerType.FEEDBACK_LINEARIZATION:
             curr_ref_state = ref_state[:, i]
