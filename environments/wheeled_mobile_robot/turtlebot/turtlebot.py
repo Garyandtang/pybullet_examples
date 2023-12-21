@@ -31,7 +31,7 @@ class Turtlebot(WheeledMobileRobot):
         self.nControl = 2
         # turtlebot model parameters
         self.length = 0.23  # length of the turtlebot
-        self.width = 0.036  # width of the wheel of the turtlebot                                                                                            len(init_state)))
+        self.radius = 0.036  # width of the wheel of the turtlebot                                                                                            len(init_state)))
         self.reset()
         self.action_space = spaces.Box(low=np.array([-10,-10]), high=np.array([10,10]), dtype=np.float32)
         self.observation_space = spaces.Box(low=-np.array([-10,-10,-10]), high=np.array([10,10,10]), dtype=np.float32)
@@ -73,8 +73,8 @@ class Turtlebot(WheeledMobileRobot):
         w = vel_cmd[1]
         v_l = v - self.length * w / 2
         v_r = v + self.length * w / 2
-        v_l = v_l / self.width
-        v_r = v_r / self.width
+        v_l = v_l / self.radius
+        v_r = v_r / self.radius
         action = np.array([v_l, v_r])
         return action
 

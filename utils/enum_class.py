@@ -24,6 +24,7 @@ class TrajType(str, Enum):
     EIGHT = 'eight'
     POSE_REGULATION = 'pose_regulation'
     TIME_VARYING = 'time_varying'
+    CONSTANT = 'constant'
 
 
 class WMRType(str, Enum):

@@ -35,6 +35,8 @@ class TrajGenerator:
             self.generate_pose_regulation_traj(config['param'])
         elif config['type'] == TrajType.TIME_VARYING:
             self.generate_time_vary_traj(config['param'])
+        elif config['type'] == TrajType.CONSTANT:
+            self.generate_circle_traj(config['param'])
 
     def generate_circle_traj(self, config):
         # example

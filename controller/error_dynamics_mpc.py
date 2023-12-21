@@ -166,12 +166,11 @@ def test_mpc():
                              'dt': 0.05}}
 
     mpc = ErrorDynamicsMPC(traj_config)
-    ref_SE2 = mpc.ref_SE2
+    ref_SE2 = mpc.ref_state
     init_state = np.array([0.5, 0.5, 0])
-    init_state = SE2Tangent(init_state).exp().coeffs()
     t = 0
     # contrainer to store state
-    state_store = np.zeros((4, mpc.nTraj))
+    state_store = np.zeros((3, mpc.nTraj))
     state_store[:, 0] = init_state
     vel_cmd_store = np.zeros((2, mpc.nTraj))
     # start simulation
@@ -181,9 +180,9 @@ def test_mpc():
         vel_cmd = mpc.solve(state, t)
         vel_cmd_store[:, i] = vel_cmd
         xi = mpc.vel_cmd_to_local_twist(vel_cmd)
-        X = SE2(state)  # SE2 state
+        X = SE2(state[0], state[1], state[2])  # SE2 state
         X = X + SE2Tangent(xi * mpc.dt)
-        state_store[:, i + 1] = X.coeffs()
+        state_store[:, i + 1] = np.array([X.x(), X.y(), X.angle()])
 
         t += mpc.dt
 
@@ -304,4 +303,4 @@ def test_pose_regulation():
 
 if __name__ == '__main__':
     # test_generate_ref_traj()
-    test_pose_regulation()
+    test_mpc()
