@@ -62,11 +62,15 @@ class WheeledMobileRobot(gym.Env, ABC):
         self.twist = np.array([np.sqrt(vel[0][0] ** 2 + vel[0][1] ** 2), vel[1][2]])
         return self.twist
 
+    @abstractmethod
+    def get_wheel_vel(self):
+        raise NotImplementedError
+
     def draw_point(self, point):
-        if not self.DEBUG or not self.GUI:
-            return
+        # if not self.DEBUG or not self.GUI:
+        #     return
         p.addUserDebugPoints(
-            [[point[0], point[1], 0.12]], [[0.1, 0, 0]], pointSize=3, lifeTime=0.5)
+            [[point[0], point[1], 0.12]], [[0.1, 0, 0]], pointSize=3, lifeTime=0.5, physicsClientId=self.PYB_CLIENT)
 
     def draw_ref_traj(self, ref_SE2):
         # todo: change to draw line, put SE2 outside this class

@@ -78,6 +78,15 @@ class Turtlebot(WheeledMobileRobot):
         action = np.array([v_l, v_r])
         return action
 
+    def action_to_vel_cmd(self, action):
+        # action: [v_l, v_r] in m/s left and right wheel velocity
+        # vel_cmd: [v, w] in m/s linear and angular velocity
+        v_l = action[0] * self.radius
+        v_r = action[1] * self.radius
+        v = (v_l + v_r) / 2
+        w = (v_r - v_l) / self.length
+        vel_cmd = np.array([v, w])
+        return vel_cmd
 
     def step(self, action):
         # action: [v_l, v_r] in m/s left and right wheel velocity
@@ -96,6 +105,11 @@ class Turtlebot(WheeledMobileRobot):
 
         self.draw_point(self.state)
         return self.state, 1, None, None, {}
+
+    def get_wheel_vel(self):
+        v_l = p.getJointState(self.robot, 0, physicsClientId=self.PYB_CLIENT)[1]
+        v_r = p.getJointState(self.robot, 1, physicsClientId=self.PYB_CLIENT)[1]
+        return np.array([v_l, v_r])
 
     def _denormalize_action(self, action):
         """ converts a normalized action into a physical action, only need in RL-based action

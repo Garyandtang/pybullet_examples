@@ -37,9 +37,9 @@ class DataDrivenFBC:
 
         # training parameters
         self.dt = 0.02
-        self.twist = np.array([0.5, 0, 0.5])
-        self.length = 0.23
-        self.radius = 0.036
+        self.twist = np.array([0.2, 0, 0.2])
+        self.length = 0.23 #+ np.random.uniform(0.11, 0.31)
+        self.radius = 0.036# + np.random.uniform(0.11, 0.31)
         self.x0 = np.array([12, 3, -3])
 
         self.K0 = None
@@ -79,20 +79,23 @@ class DataDrivenFBC:
 
         # set Q
         Q = np.zeros((n, n))
-        Q[:3, :3] = np.eye(3) * 1000 * self.dt
+        Q[:3, :3] = np.eye(3) * 100000 * self.dt
         print(Q)
 
         # set R
         R = np.eye(2) * 10 * self.dt
         print(R)
         # set c
-        self.c = self.twist
+        self.c = self.twist * self.dt
 
         # set K0, k0
         K, _, _ = ct.dlqr(A, B, Q, R)
+        # self.K0 = np.array([[-39.38571031,  -7.61143249,   8.06570931],
+        #                 [-52.34600972, -40.40236655, -22.41785104]])
         self.K0 = -K
         B_inv = np.linalg.pinv(B)
         self.k0 = -B_inv @ self.c
+        self.K_init = self.K0
 
         # print("optimal K: ", K)
         self.A = A
@@ -101,7 +104,7 @@ class DataDrivenFBC:
         self.R = R
 
     def learning(self):
-        iteration = 10
+        iteration = 2
         robot = Turtlebot()
 
         print("init K: ", self.K0)
@@ -115,11 +118,11 @@ class DataDrivenFBC:
         k_contrainer = self.k0.reshape((m, 1))
         error_container = np.zeros((iteration, 1))
         for i in range(iteration - 1):
-            data_container = self.simulation()
+            data_container = self.simulation(gui=False, debug=False, learning=True)
             K_prev = np.zeros((n * m, 1))
-            while np.linalg.norm(self.K0.reshape(n * m, 1) - K_prev) > 0.01:
-                print("error: ", np.linalg.norm(self.K0.reshape(n * m, 1) - K_prev))
-                K_prev = self.K0.reshape(n * m, 1)
+            while np.linalg.norm(data_container.K.reshape(n * m, 1) - K_prev) > 0.01:
+                print("error: ", np.linalg.norm(data_container.K.reshape(n * m, 1) - K_prev))
+                K_prev = data_container.K.reshape(n * m, 1)
 
                 S = self.solve_S_from_data_collect(data_container)
 
@@ -127,32 +130,51 @@ class DataDrivenFBC:
                 S_22 = S[n:, n:]
                 S_12 = S[:n, n:]
                 K = -np.linalg.inv(S_22) @ S_12.T
-                self.update_K(K)
+                data_container.K = K
                 print("K = ", K)
                 S_11 = S[:n, :n]
                 B = self.A @ np.linalg.inv(S_11 - self.Q) @ S_12
-                self.update_B(B)
+
+                # B = np.array([[B[0,0], B[0,0]],
+                #               [0, 0],
+                #               [B[2,0], -B[2,0]]])
+                # self.update_B(B)
+                print("B = ", B)
                 B_inv = np.linalg.pinv(B)
-                k = -B_inv @ self.c
-                self.update_k(k)
+
+                k = B_inv @ self.c
+                data_container.k = k
+                # self.update_k(k)
                 K_contrainer = np.vstack((K_contrainer, K.reshape((n * m, 1))[:, 0]))
                 # k_contrainer = np.vstack((k_contrainer, k.reshape((m, 1))[:, 0]))
-                print("k = ", k)
+                # print("k = ", k)
+            print("iteration: ", i)
+            print("K: ", K)
 
+            self.K0 = K
+            # self.k0 = -np.linalg.pinv(B) @ self.c
+        # self.k0 = k
 
-    def simulation(self):
+    def simulation(self, gui=False, debug=False, learning=False):
+ #        K = np.array([[  -91.41896267,  -919.05164743,   -76.75876261],
+ # [  -73.62865788, -1055.11966778,  -188.33218957]])
         K = self.K0
         k = self.k0
         data = training_data(self.A.shape[0], self.B.shape[1])
         data.K = K
         data.k = k
-        robot = Turtlebot()
+        robot = Turtlebot(gui=gui, debug=debug)
         n = self.A.shape[0]
         m = self.B.shape[1]
         # generate reference trajectory
-        nTraj = 100
-        start_state = np.random.uniform(-0.1, 0.1, (3,))
-        start_state[2] = 0
+        nTraj = 1800
+        if learning:
+            nTraj = 300
+
+        start_state = np.zeros((3,))
+        if learning:
+            start_state = np.random.uniform(-2000, 2000, (3,))
+
         traj_config = {'type': TrajType.CIRCLE,
                         'param': {'start_state': start_state,
                                     'linear_vel': self.twist[0],
@@ -161,17 +183,31 @@ class DataDrivenFBC:
                                     'dt': self.dt}}
         traj_gen = TrajGenerator(traj_config)
         ref_state, ref_control, dt = traj_gen.get_traj()
-        for i in range(nTraj):
+        robot.draw_ref_traj(ref_state)
+        for i in range(nTraj-1):
             curr_state = robot.get_state()
             curr_ref = ref_state[:, i]
             x = SE2(curr_ref[0], curr_ref[1], curr_ref[2]).between(SE2(curr_state[0], curr_state[1], curr_state[2])).log().coeffs()
-            u = self.action(x) + np.random.uniform(-0.2, 0.2, (m,))
-            x_next, _, _, _, _ = robot.step(u)
+            print("xi: ", x)
+            print("robot state: ", curr_state)
+            u = self.action(x)
+            if learning:
+                u += np.random.uniform(-200, 200, (m,))
+            next_state, _, _, _, _ = robot.step(u)
+            next_ref = ref_state[:, i+1]
+            x_next = SE2(next_ref[0], next_ref[1], next_ref[2]).between(SE2(next_state[0], next_state[1], next_state[2])).log().coeffs()
             pair = data_pair()
             pair.x = x.reshape((n,))
             pair.u = u
             pair.x_next = x_next.reshape((n,))
             data.data_container = np.append(data.data_container, pair)
+            # if gui:
+            #     time.sleep(0.02)
+
+            print("wheel vel: ", robot.get_wheel_vel())
+            print("vel: ", robot.action_to_vel_cmd(u))
+
+
 
         return data
 
@@ -190,9 +226,9 @@ class DataDrivenFBC:
             x = data.data_container[i].x
             u = data.data_container[i].u
             xi[:n] = x
-            xi[n:] = u
+            xi[n:] = u - k
             zeta[:n] = data.data_container[i].x_next
-            u_next = self.action(x)
+            u_next = K0 @ data.data_container[i].x_next
             zeta[n:] = u_next
             temp = np.kron(xi.T, xi.T) - np.kron(zeta.T, zeta.T)
             A[i, :] = temp
@@ -262,4 +298,6 @@ class DataDrivenFBC:
 if __name__ == '__main__':
     a = DataDrivenFBC()
     a.training_setting()
+    # a.simulation(gui=True, debug=True, learning=True)
     a.learning()
+    a.simulation(gui=True, debug=True)
