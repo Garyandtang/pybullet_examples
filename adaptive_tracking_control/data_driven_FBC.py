@@ -8,19 +8,20 @@ import math
 from controller.ref_traj_generator import TrajGenerator
 from utils.enum_class import TrajType, ControllerType, LiniearizationType
 from environments.wheeled_mobile_robot.turtlebot.turtlebot import Turtlebot
+from environments.numerical_simulator.WMR_simulator import WMRSimulator
 import control as ct
 
 class data_pair:
     def __init__(self):
-        self.x = np.zeros((3, 1))
-        self.u = np.zeros((2, 1))
-        self.x_next = np.zeros((3, 1))
+        self.x = np.zeros((3,))
+        self.u = np.zeros((2,))
+        self.x_next = np.zeros((3,))
 class training_data:
     def __init__(self, n, m):
         self.data_container = np.zeros(0, dtype=data_pair)
         self.K = np.zeros((m, n))
-        self.k = np.zeros((n, 1))
-        self.c = np.zeros((n, 1))
+        self.k = np.zeros((n,))
+        self.c = np.zeros((n,))
 
 
 # x_next = A @ x + B @ u + c
@@ -33,6 +34,8 @@ class DataDrivenFBC:
         self.B = None
         self.c = None
         self.n = None
+
+        self.curr_state = np.array([0, 0, 0])
 
 
         # training parameters
@@ -57,6 +60,10 @@ class DataDrivenFBC:
     def update_B(self, B):
         self.B = B
 
+    def step(self, u):
+        self.curr_state = self.A @ self.curr_state + self.B @ u + self.c
+        return self.curr_state, None, None, None, None
+
     def training_setting(self):
         # set A, B
         self.n = 3
@@ -79,22 +86,23 @@ class DataDrivenFBC:
 
         # set Q
         Q = np.zeros((n, n))
-        Q[:3, :3] = np.eye(3) * 100000 * self.dt
+        Q[:3, :3] = np.eye(3) * 1000 * self.dt
         print(Q)
 
         # set R
         R = np.eye(2) * 10 * self.dt
         print(R)
         # set c
-        self.c = self.twist * self.dt
+        self.c = -self.twist * self.dt
 
         # set K0, k0
         K, _, _ = ct.dlqr(A, B, Q, R)
-        # self.K0 = np.array([[-39.38571031,  -7.61143249,   8.06570931],
-        #                 [-52.34600972, -40.40236655, -22.41785104]])
+        self.K0 = np.array([[-39.38571031,  -7.61143249,   8.06570931],
+                        [-52.34600972, -40.40236655, -22.41785104]])
         self.K0 = -K
         B_inv = np.linalg.pinv(B)
         self.k0 = -B_inv @ self.c
+
         self.K_init = self.K0
 
         # print("optimal K: ", K)
@@ -103,8 +111,12 @@ class DataDrivenFBC:
         self.Q = Q
         self.R = R
 
+    def get_optimal_K(self):
+        K, S, E = ct.dlqr(self.A, self.B, self.Q, self.R)
+        return -K
+
     def learning(self):
-        iteration = 2
+        iteration = 10
         robot = Turtlebot()
 
         print("init K: ", self.K0)
@@ -120,7 +132,8 @@ class DataDrivenFBC:
         for i in range(iteration - 1):
             data_container = self.simulation(gui=False, debug=False, learning=True)
             K_prev = np.zeros((n * m, 1))
-            while np.linalg.norm(data_container.K.reshape(n * m, 1) - K_prev) > 0.01:
+            while np.linalg.norm(data_container.K.reshape(n * m, 1) - K_prev) > 0.0551:
+            # for j in range(2):
                 print("error: ", np.linalg.norm(data_container.K.reshape(n * m, 1) - K_prev))
                 K_prev = data_container.K.reshape(n * m, 1)
 
@@ -142,7 +155,7 @@ class DataDrivenFBC:
                 print("B = ", B)
                 B_inv = np.linalg.pinv(B)
 
-                k = B_inv @ self.c
+                k = -B_inv @ self.c
                 data_container.k = k
                 # self.update_k(k)
                 K_contrainer = np.vstack((K_contrainer, K.reshape((n * m, 1))[:, 0]))
@@ -152,7 +165,7 @@ class DataDrivenFBC:
             print("K: ", K)
 
             self.K0 = K
-            # self.k0 = -np.linalg.pinv(B) @ self.c
+            self.k0 = -np.linalg.pinv(B) @ self.c
         # self.k0 = k
 
     def simulation(self, gui=False, debug=False, learning=False):
@@ -163,17 +176,18 @@ class DataDrivenFBC:
         data = training_data(self.A.shape[0], self.B.shape[1])
         data.K = K
         data.k = k
-        robot = Turtlebot(gui=gui, debug=debug)
+        # robot = Turtlebot(gui=gui, debug=debug)
+        robot = WMRSimulator()
         n = self.A.shape[0]
         m = self.B.shape[1]
         # generate reference trajectory
         nTraj = 1800
         if learning:
-            nTraj = 300
+            nTraj = 200
 
         start_state = np.zeros((3,))
-        if learning:
-            start_state = np.random.uniform(-2000, 2000, (3,))
+        # if learning:
+        #     start_state = np.random.uniform(-1, 1, (3,))
 
         traj_config = {'type': TrajType.CIRCLE,
                         'param': {'start_state': start_state,
@@ -183,19 +197,23 @@ class DataDrivenFBC:
                                     'dt': self.dt}}
         traj_gen = TrajGenerator(traj_config)
         ref_state, ref_control, dt = traj_gen.get_traj()
-        robot.draw_ref_traj(ref_state)
+        # robot.draw_ref_traj(ref_state)
         for i in range(nTraj-1):
-            curr_state = robot.get_state()
-            curr_ref = ref_state[:, i]
-            x = SE2(curr_ref[0], curr_ref[1], curr_ref[2]).between(SE2(curr_state[0], curr_state[1], curr_state[2])).log().coeffs()
+            # curr_state = robot.get_state()
+            curr_state = np.random.uniform(-10, 10, (3,))
+            x = curr_state
+            # curr_ref = ref_state[:, i]
+            # x = SE2(curr_ref[0], curr_ref[1], curr_ref[2]).between(SE2(curr_state[0], curr_state[1], curr_state[2])).log().coeffs()
             print("xi: ", x)
             print("robot state: ", curr_state)
             u = self.action(x)
             if learning:
-                u += np.random.uniform(-200, 200, (m,))
-            next_state, _, _, _, _ = robot.step(u)
+                u = np.random.uniform(-10, 10, (m,))
+            # next_state, _, _, _, _ = robot.step(u)
+            next_state, _, _, _, _ = self.step(u)
             next_ref = ref_state[:, i+1]
             x_next = SE2(next_ref[0], next_ref[1], next_ref[2]).between(SE2(next_state[0], next_state[1], next_state[2])).log().coeffs()
+            x_next = next_state
             pair = data_pair()
             pair.x = x.reshape((n,))
             pair.u = u
@@ -204,8 +222,8 @@ class DataDrivenFBC:
             # if gui:
             #     time.sleep(0.02)
 
-            print("wheel vel: ", robot.get_wheel_vel())
-            print("vel: ", robot.action_to_vel_cmd(u))
+            # print("wheel vel: ", robot.get_wheel_vel())
+            # print("vel: ", robot.action_to_vel_cmd(u))
 
 
 
@@ -224,9 +242,9 @@ class DataDrivenFBC:
         b = np.zeros((data.data_container.shape[0],))
         for i in range(data.data_container.shape[0]):
             x = data.data_container[i].x
-            u = data.data_container[i].u
+            u = data.data_container[i].u - k
             xi[:n] = x
-            xi[n:] = u - k
+            xi[n:] = u
             zeta[:n] = data.data_container[i].x_next
             u_next = K0 @ data.data_container[i].x_next
             zeta[n:] = u_next
@@ -300,4 +318,6 @@ if __name__ == '__main__':
     a.training_setting()
     # a.simulation(gui=True, debug=True, learning=True)
     a.learning()
-    a.simulation(gui=True, debug=True)
+    print("optimal K: ", a.get_optimal_K())
+    print("optimal B: ", a.B)
+    # a.simulation(gui=True, debug=True)
