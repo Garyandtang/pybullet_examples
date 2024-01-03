@@ -19,6 +19,10 @@ class training_data:
         self.K = np.zeros((m, n))
         self.k = np.zeros((n,))
         self.c = np.zeros((n,))
+        self.Q = np.zeros((n, n))
+        self.R = np.zeros((m, m))
+        self.A = np.zeros((n, n))
+        self.B = np.zeros((n, m))
 
 # self.A = np.array([[0, 1], [-1, -1]])
 #         self.B = np.array([[0], [1]])
@@ -37,8 +41,8 @@ class LTI:
         l = 0.23
         r = 0.036
         self.dt = 0.02
-        self.v = 0.2
-        self.w = 0.2
+        self.v = 0.02
+        self.w = 0.3
         self.twist = np.array([self.v, 0, self.w])
         adj = -SE2Tangent(self.twist).smallAdj()
         self.A = np.eye(3) + self.dt * adj
@@ -48,15 +52,14 @@ class LTI:
         self.c = -self.dt * self.twist
         # self.c = np.zeros((3,))
 
-        self.Q = 2 * np.eye(3)
-        self.R = 2 * np.eye(2)
+        self.Q = 200 * np.eye(3)
+        self.R = 0.2 * np.eye(2)
 
 
     def controller_init(self):
-        self.K0 = -ct.dlqr(self.A, self.B*0.1, 12*self.Q, 0.1*self.R)[0]
-        # self.k0 = np.array([0.69894405, 0.71445459])
-        # self.K0 = self.get_optimal_K()
-        self.k0 = -np.linalg.pinv(0.9*self.B) @ self.c
+        self.K0 = -ct.dlqr(self.A, self.B, 100*self.Q, 1*self.R)[0]
+        self.K_ini = self.K0
+        self.k0 = -np.linalg.pinv(self.B) @ self.c
 
         # self.K0 = np.array([[-0.70278886,  0.01032037,  0.7067451 ],
         #                     [-0.70601027, -0.01844283, -0.70708518]])
@@ -144,14 +147,18 @@ class LTI:
 def simulation(lti, learning=False):
     K = lti.K0
     k = lti.k0
-    print("init k: ", k)
+    print("init K: ", lti.K_ini)
     n = lti.A.shape[0]
     m = lti.B.shape[1]
     data = training_data(n, m)
     data.K = K
     data.k = k
     data.c = lti.c
-    nTraj = 9000
+    data.Q = lti.Q
+    data.R = lti.R
+    data.A = lti.A
+    data.B = lti.B
+    nTraj = 1500
     traj_config = {'type': TrajType.CIRCLE,
                    'param': {'start_state': np.zeros((3,)),
                              'linear_vel': lti.twist[0],
@@ -162,7 +169,7 @@ def simulation(lti, learning=False):
     ref_state, ref_control, dt = traj_gen.get_traj()
     robot = WMRSimulator()
     if ~learning:
-        robot.set_init_state(np.array([-0.1, -0.1, 0]))
+        robot.set_init_state(np.array([-0.001, -0.001, 0]))
     state_container = np.zeros((n, nTraj-1))
     x_container = np.zeros((n, nTraj-1))
     for i in range(nTraj-1):
@@ -171,13 +178,11 @@ def simulation(lti, learning=False):
         curr_ref = ref_state[:, i]
         x = SE2(curr_ref[0], curr_ref[1], curr_ref[2]).between(
             SE2(curr_state[0], curr_state[1], curr_state[2])).log().coeffs()
-        if learning:
-            x = x + np.random.uniform(-1, 1, (n,))
         x_container[:, i] = x
-        u = lti.action(x)
+        u = K @ x + k
         if learning:
-            u = u + np.random.uniform(-1, 1, (m,))
-        # x_next = lti.step(x, u)
+            u = u - 1 + 2* np.random.rand(m, )
+            # u = u + np.random.uniform(-1, 1, (m,))
         next_state, _, _, _, _ = robot.step(u)
         next_ref = ref_state[:, i + 1]
         x_next = SE2(next_ref[0], next_ref[1], next_ref[2]).between(
@@ -217,10 +222,15 @@ def B_Indentifier(lti):
     iteration = 20
     recovered_B_vector = np.zeros(0, dtype=np.ndarray)
     data_container = simulation(lti, True)
-    for i in range(iteration - 1):
-        print("iteration: ", i, '===================')
+    K_prev = np.zeros((m, n))
+    k_prev = np.zeros((m,))
+    while np.linalg.norm(data_container.K - K_prev) > 0.1 or np.linalg.norm(data_container.k - k_prev) > 0.1:
+        K_prev = data_container.K
+        k_prev = data_container.k
+        print("iteration: ", iteration, '===================')
         # solve S from data
-        S = solve_S_from_data_collect(data_container, lti.Q, lti.R)
+        gamma = 1
+        S = solve_S_from_data_collect(data_container, data_container.Q, data_container.R, gamma)
         # solve K from S
         S_22 = S[n:n + m, n:n + m]
         S_12 = S[:n, n:n + m]
@@ -229,14 +239,16 @@ def B_Indentifier(lti):
         B = lti.A @ np.linalg.inv(S_11 - lti.Q) @ S_12
         recovered_B_vector = np.append(recovered_B_vector, B)
         print("B = ", B)
-        k = -np.linalg.pinv(B) @ lti.c
-        # k = -np.linalg.pinv(lti.B) @ lti.c
+        k = -np.linalg.pinv(lti.B) @ lti.c
         data_container.K = K
         data_container.k = k
         print("current K: ", K)
         print("current k: ", k)
         print("optimal K: ", lti.get_optimal_K())
+        print("error K: ", data_container.K - K_prev)
+        print("error k: ", data_container.k - k_prev)
         print("====================================")
+        iteration += 1
     print("K: ", K)
     print("k: ", k)
     # print("Recovered B: ", B)
@@ -246,7 +258,7 @@ def B_Indentifier(lti):
 
 
 
-def solve_S_from_data_collect(data, Q, R):
+def solve_S_from_data_collect(data, Q, R, gamma):
     # S can be solved with least square method
     n = data.K.shape[1]
     m = data.K.shape[0]
@@ -270,7 +282,7 @@ def solve_S_from_data_collect(data, Q, R):
         zeta[n+m:] = c
         temp = np.kron(xi.T, xi.T) - np.kron(zeta.T, zeta.T)
         A[i, :] = temp
-        b[i] = x.T @ Q @ x + u.T @ R @ u
+        b[i] = (x.T @ Q @ x + u.T @ R @ u) * np.power(0.99, i)
     S = np.linalg.pinv(A) @ b
     S = S.reshape((2*n + m, 2*n + m))
     return S
