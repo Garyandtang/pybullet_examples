@@ -38,10 +38,10 @@ class LTI:
 
 
     def system_init(self):
-        l = 0.23
-        r = 0.036
+        l = np.random.uniform(0.2, 0.3)
+        r = np.random.uniform(0.02, 0.04)
         self.dt = 0.02
-        self.v = 0.02
+        self.v = 0.2
         self.w = 0.3
         self.twist = np.array([self.v, 0, self.w])
         adj = -SE2Tangent(self.twist).smallAdj()
@@ -57,7 +57,7 @@ class LTI:
 
 
     def controller_init(self):
-        self.K0 = -ct.dlqr(self.A, self.B, 100*self.Q, 1*self.R)[0]
+        self.K0 = -ct.dlqr(self.A, self.B, self.Q, self.R)[0]
         self.K_ini = self.K0
         self.k0 = -np.linalg.pinv(self.B) @ self.c
 
@@ -158,7 +158,7 @@ def simulation(lti, learning=False):
     data.R = lti.R
     data.A = lti.A
     data.B = lti.B
-    nTraj = 1500
+    nTraj = 2600
     traj_config = {'type': TrajType.CIRCLE,
                    'param': {'start_state': np.zeros((3,)),
                              'linear_vel': lti.twist[0],
@@ -168,23 +168,29 @@ def simulation(lti, learning=False):
     traj_gen = TrajGenerator(traj_config)
     ref_state, ref_control, dt = traj_gen.get_traj()
     robot = WMRSimulator()
+    ref_robot = WMRSimulator()
     if ~learning:
-        robot.set_init_state(np.array([-0.001, -0.001, 0]))
+        robot.set_init_state(np.array([-0., -0., 0]))
+        ref_robot.set_init_state(np.array([0, 0, 0]))
     state_container = np.zeros((n, nTraj-1))
     x_container = np.zeros((n, nTraj-1))
+    ref_state_container = np.zeros((n, nTraj-1))
     for i in range(nTraj-1):
         curr_state = robot.get_state()
         state_container[:, i] = curr_state
-        curr_ref = ref_state[:, i]
+        curr_ref = ref_robot.get_state()
+        ref_state_container[:, i] = curr_ref
         x = SE2(curr_ref[0], curr_ref[1], curr_ref[2]).between(
             SE2(curr_state[0], curr_state[1], curr_state[2])).log().coeffs()
         x_container[:, i] = x
         u = K @ x + k
         if learning:
-            u = u - 1 + 2* np.random.rand(m, )
-            # u = u + np.random.uniform(-1, 1, (m,))
+            # u = u + np.random.normal(0, 1, (m,))
+            u = u + np.random.uniform(-3, 3, (m,))
         next_state, _, _, _, _ = robot.step(u)
-        next_ref = ref_state[:, i + 1]
+        ref_twist = np.array([ref_control[0, i], 0, ref_control[1, i]])
+        ref_u = ref_robot.twist_to_control(ref_twist)
+        next_ref, _, _, _, _ = ref_robot.step(ref_u)
         x_next = SE2(next_ref[0], next_ref[1], next_ref[2]).between(
             SE2(next_state[0], next_state[1], next_state[2])).log().coeffs()
         pair = data_pair(n, m)
@@ -195,18 +201,21 @@ def simulation(lti, learning=False):
             data.data_container = pair
         else:
             data.data_container = np.append(data.data_container, pair)
+
     # plt ref traj and state traj
     plt.figure()
     plt.plot(ref_state[0, :nTraj-1], ref_state[1, :nTraj-1], 'b')
     plt.plot(state_container[0, :nTraj-1], state_container[1, :nTraj-1], 'r')
     plt.title('learning: {}'.format(learning))
+    legend = ['ref', 'state']
+    plt.legend(legend)
     plt.show()
 
     # plt x
     plt.figure()
-    plt.plot(x_container.T)
+    plt.plot(x_container[:3, :].T)
     plt.title('learning: {}'.format(learning))
-    legend = ['x', 'y', 'theta']
+    legend = ['x', 'y']
     plt.legend(legend)
 
     plt.show()
@@ -224,7 +233,7 @@ def B_Indentifier(lti):
     data_container = simulation(lti, True)
     K_prev = np.zeros((m, n))
     k_prev = np.zeros((m,))
-    while np.linalg.norm(data_container.K - K_prev) > 0.1 or np.linalg.norm(data_container.k - k_prev) > 0.1:
+    while np.linalg.norm(data_container.K - K_prev) > 0.05 or np.linalg.norm(data_container.k - k_prev) > 0.05:
         K_prev = data_container.K
         k_prev = data_container.k
         print("iteration: ", iteration, '===================')
@@ -239,7 +248,7 @@ def B_Indentifier(lti):
         B = lti.A @ np.linalg.inv(S_11 - lti.Q) @ S_12
         recovered_B_vector = np.append(recovered_B_vector, B)
         print("B = ", B)
-        k = -np.linalg.pinv(lti.B) @ lti.c
+        k = -np.linalg.pinv(B) @ lti.c
         data_container.K = K
         data_container.k = k
         print("current K: ", K)
@@ -273,16 +282,17 @@ def solve_S_from_data_collect(data, Q, R, gamma):
     for i in range(data.data_container.shape[0]):
         x = data.data_container[i].x
         u = data.data_container[i].u - k
+        x_next = data.data_container[i].x_next
         xi[:n] = x
         xi[n:n+m] = u
         xi[n+m:] = c
-        zeta[:n] = data.data_container[i].x_next
-        u_next = K @ data.data_container[i].x_next
+        zeta[:n] = x_next
+        u_next = K @ x_next
         zeta[n:n+m] = u_next
         zeta[n+m:] = c
         temp = np.kron(xi.T, xi.T) - np.kron(zeta.T, zeta.T)
         A[i, :] = temp
-        b[i] = (x.T @ Q @ x + u.T @ R @ u) * np.power(0.99, i)
+        b[i] = (x.T @ Q @ x + u.T @ R @ u) * np.power(gamma, i)
     S = np.linalg.pinv(A) @ b
     S = S.reshape((2*n + m, 2*n + m))
     return S

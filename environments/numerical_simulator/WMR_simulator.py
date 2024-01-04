@@ -33,6 +33,15 @@ class WMRSimulator(SE2Simulator):
     def get_state(self):
         return self.curr_state
 
+    def twist_to_control(self, twist):
+        r = self.radius
+        l = self.length
+        v = twist[0]
+        w = twist[2]
+        w_l = (2 * v - l * w) / (2 * r)
+        w_r = (2 * v + l * w) / (2 * r)
+        return np.array([w_l, w_r])
+
 
 def test_simulator():
     dt = 0.02
@@ -45,7 +54,7 @@ def test_simulator():
     for i in range(20000):
         simulator.step(control)
         # print(simulator.curr_state)
-        state_container = np.vstack((state_container, simulator.curr_state))
+        state_container = np.vstack((state_container, simulator.get_state()))
 
     import matplotlib.pyplot as plt
     plt.figure()
