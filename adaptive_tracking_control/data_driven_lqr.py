@@ -40,6 +40,8 @@ class LTI:
     def system_init(self):
         l = np.random.uniform(0.2, 0.3)
         r = np.random.uniform(0.02, 0.04)
+        # l = 0.23
+        # r = 0.036
         self.dt = 0.02
         self.v = 0.2
         self.w = 0.3
@@ -143,6 +145,8 @@ class LTI:
     def update_k0(self, k):
         self.k0 = k
 
+    def update_B(self, B):
+        self.B = B
 
 def simulation(lti, learning=False):
     K = lti.K0
@@ -158,7 +162,7 @@ def simulation(lti, learning=False):
     data.R = lti.R
     data.A = lti.A
     data.B = lti.B
-    nTraj = 2600
+    nTraj = 1600
     traj_config = {'type': TrajType.CIRCLE,
                    'param': {'start_state': np.zeros((3,)),
                              'linear_vel': lti.twist[0],
@@ -186,7 +190,7 @@ def simulation(lti, learning=False):
         u = K @ x + k
         if learning:
             # u = u + np.random.normal(0, 1, (m,))
-            u = u + np.random.uniform(-3, 3, (m,))
+            u = u + np.random.uniform(-5, 5, (m,))
         next_state, _, _, _, _ = robot.step(u)
         ref_twist = np.array([ref_control[0, i], 0, ref_control[1, i]])
         ref_u = ref_robot.twist_to_control(ref_twist)
@@ -202,24 +206,25 @@ def simulation(lti, learning=False):
         else:
             data.data_container = np.append(data.data_container, pair)
 
-    # plt ref traj and state traj
-    plt.figure()
-    plt.plot(ref_state[0, :nTraj-1], ref_state[1, :nTraj-1], 'b')
-    plt.plot(state_container[0, :nTraj-1], state_container[1, :nTraj-1], 'r')
-    plt.title('learning: {}'.format(learning))
-    legend = ['ref', 'state']
-    plt.legend(legend)
-    plt.show()
+    if not learning:
+        # plt ref traj and state traj
+        plt.figure()
+        plt.plot(ref_state[0, :nTraj - 1], ref_state[1, :nTraj - 1], 'b')
+        plt.plot(state_container[0, :nTraj - 1], state_container[1, :nTraj - 1], 'r')
+        plt.title('learning: {}'.format(learning))
+        legend = ['ref', 'actual']
+        plt.legend(legend)
+        plt.show()
 
-    # plt x
-    plt.figure()
-    plt.plot(x_container[:3, :].T)
-    plt.title('learning: {}'.format(learning))
-    legend = ['x', 'y']
-    plt.legend(legend)
+        # plt x
+        plt.figure()
+        plt.plot(x_container[:3, :].T)
+        plt.title('learning: {}'.format(learning))
+        legend = ['x', 'y', 'theta']
+        plt.legend(legend)
 
-    plt.show()
-    print("x: ", x_container[:, -1])
+        plt.show()
+        print("x: ", x_container[:, -1])
 
     return data
 
@@ -228,7 +233,7 @@ def B_Indentifier(lti):
     # lti = LTI()
     n = lti.A.shape[0]
     m = lti.B.shape[1]
-    iteration = 20
+    iteration = 0
     recovered_B_vector = np.zeros(0, dtype=np.ndarray)
     data_container = simulation(lti, True)
     K_prev = np.zeros((m, n))
@@ -263,6 +268,7 @@ def B_Indentifier(lti):
     # print("Recovered B: ", B)
     lti.update_k0(k)
     lti.update_K0(K)
+    lti.update_B(B)
 
 
 
@@ -301,7 +307,8 @@ def solve_S_from_data_collect(data, Q, R, gamma):
 if __name__ == '__main__':
     lti = LTI()
     simulation(lti, False)
-    B_Indentifier(lti)
+    for i in range(5):
+        B_Indentifier(lti)
     simulation(lti, False)
     # learning()
     print("optimal B: ", lti.B)
