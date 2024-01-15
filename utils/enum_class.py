@@ -36,7 +36,6 @@ class ControllerType(str, Enum):
     FEEDBACK_LINEARIZATION = 'feedback_linearization'
     NMPC = 'nonlinear_model_predictive_control'
     GMPC = 'Geomtric_model_predictive_control'
-    SE3MPC = 'SE3_model_predictive_control'
 
 
 class EnvType(str, Enum):

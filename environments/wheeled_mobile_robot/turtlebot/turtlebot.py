@@ -119,10 +119,10 @@ class Turtlebot(WheeledMobileRobot):
         return action
 
     def _set_action_space(self):
-        self.v_min = -1
-        self.v_max = 1
-        self.w_min = -3.14
-        self.w_max = 3.14
+        self.v_min = 0
+        self.v_max = 0.22
+        self.w_min = -2.86
+        self.w_max = 2.86
 
 
 

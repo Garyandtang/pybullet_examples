@@ -38,13 +38,15 @@ def load_data_and_save_figure(data_path):
     # plot
     plt.figure()
     font_size = 16
+    pos_lim = 0.4
+    ori_lim = 1.4
     plt.plot(t, orientation_error.T,label='orientation error')
     plt.xlabel("$t$",fontsize=20)
     plt.ylabel("$e_R(t)$",fontsize=font_size)
     plt.legend(fontsize=font_size)
     plt.tight_layout()
-    plt.ylim(0, 0.2)
-    plt.savefig(os.path.join(data_path, name + '_orientation_error.eps'))
+    plt.ylim(0, ori_lim)
+    plt.savefig(os.path.join(data_path, name + '_orientation_error.jpg'))
     plt.show()
 
     plt.figure()
@@ -53,8 +55,8 @@ def load_data_and_save_figure(data_path):
     plt.ylabel("$e_p(t)$",fontsize=font_size)
     plt.legend(fontsize=font_size)
     plt.tight_layout()
-    plt.ylim(0, 0.1)
-    plt.savefig(os.path.join(data_path, name + '_position_error.eps'))
+    plt.ylim(0, pos_lim)
+    plt.savefig(os.path.join(data_path, name + '_position_error.jpg'))
     plt.show()
 
     plt.figure()

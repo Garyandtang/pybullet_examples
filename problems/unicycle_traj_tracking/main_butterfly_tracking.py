@@ -9,11 +9,15 @@ import os
 
 
 def butterfly_tracking(env_type, controller_type):
+    if env_type == EnvType.TURTLEBOT:
+        scale = 0.4
+    elif env_type == EnvType.SCOUT_MINI:
+        scale = 1.8
     init_state = np.array([0, 0, 0])
     traj_config = {'type': TrajType.EIGHT,
                    'param': {'start_state': np.array([0, 0, 0]),
                              'dt': 0.02,
-                             'v_scale': 1.8,
+                             'v_scale': scale,
                              'w_scale': 1,
                              'nTraj': 2500}}
 
@@ -25,6 +29,8 @@ def butterfly_tracking(env_type, controller_type):
         controller = ErrorDynamicsMPC(traj_config)
     elif controller_type == ControllerType.FEEDBACK_LINEARIZATION:
         controller = FBLinearizationController()
+    else:
+        return
 
     store_SE2, store_twist, _ = simulation(init_state, controller, traj_gen, env_type, gui=False)
 
@@ -56,5 +62,10 @@ def main():
             butterfly_tracking(env_type, controller_type)
 
 
+def test():
+    controller_type = ControllerType.GMPC
+    env_type = EnvType.SCOUT_MINI
+    butterfly_tracking(env_type, controller_type)
+
 if __name__ == '__main__':
-    main()
+    test()

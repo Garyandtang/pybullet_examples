@@ -112,7 +112,7 @@ class NaiveMPC:
         self.set_control_bound()
         self.cost_func = self.model.cost_func
 
-    def set_solver(self, q=[5000, 5000, 0], R=1, N=10):
+    def set_solver(self, q=[300, 300, 0], R=1, N=10):
         self.Q = np.diag(q)
         self.R = R * np.eye(self.model.nu)
         self.N = N
@@ -185,7 +185,7 @@ class NaiveMPC:
         opts_setting = {'ipopt.max_iter': 1000, 'ipopt.print_level': 0, 'print_time': 0, 'ipopt.acceptable_tol': 1e-8,
                         'ipopt.acceptable_obj_change_tol': 1e-6}
 
-        opti.solver('ipopt')
+        opti.solver('ipopt', opts_setting)
         sol = opti.solve()
         u = sol.value(u_var[:, 0])
         self.solve_time = time.time() - start_time

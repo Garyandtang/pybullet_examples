@@ -220,4 +220,4 @@ def test_generate_eight_traj():
 
 
 if __name__ == '__main__':
-    test_traj_generator()
+    test_generate_eight_traj()

@@ -18,9 +18,9 @@ def main():
     # set trajetory
     traj_config = {'type': TrajType.CIRCLE,
                    'param': {'start_state': np.array([0, 0, 0]),
-                             'linear_vel': 0.5,
-                             'angular_vel': 0.5,
-                             'nTraj': 500,
+                             'linear_vel': 0.15,
+                             'angular_vel': 0.2,
+                             'nTraj': 1000,
                              'dt': 0.02}}
     traj_gen = TrajGenerator(traj_config)
     ref_state, ref_control, dt = traj_gen.get_traj()
@@ -36,18 +36,18 @@ def main():
 
     for i in range(mc_num):
         # random init state
-        init_x = np.random.uniform(-0.15, 0.15)
-        init_y = np.random.uniform(-0.15, 0.15)
-        init_theta = np.random.uniform(-np.pi / 6, np.pi / 6)
+        init_x = np.random.uniform(-0.2, 0)
+        init_y = np.random.uniform(-0.2, 0.0)
+        init_theta = np.random.uniform(-np.pi /6, 0)
         init_state = np.array([init_x, init_y, init_theta])
         print('mc_num: ', i)
-        controller = ErrorDynamicsMPC(traj_config)
-        store_state, store_control, _ = simulation(init_state, controller, traj_gen, env_type)
-        edmpc_position_error[i, :], edmpc_orientation_error[i, :] = calulate_trajecotry_error(ref_state, store_state)
-
-        controller = NaiveMPC(traj_config)
-        store_state, store_control, _ = simulation(init_state, controller, traj_gen, env_type)
-        nmpc_position_error[i, :], nmpc_orientation_error[i, :] = calulate_trajecotry_error(ref_state, store_state)
+        # controller = ErrorDynamicsMPC(traj_config)
+        # store_state, store_control, _ = simulation(init_state, controller, traj_gen, env_type)
+        # edmpc_position_error[i, :], edmpc_orientation_error[i, :] = calulate_trajecotry_error(ref_state, store_state)
+        #
+        # controller = NaiveMPC(traj_config)
+        # store_state, store_control, _ = simulation(init_state, controller, traj_gen, env_type)
+        # nmpc_position_error[i, :], nmpc_orientation_error[i, :] = calulate_trajecotry_error(ref_state, store_state)
 
         controller = FBLinearizationController()
         store_state, store_control, _ = simulation(init_state, controller, traj_gen, env_type)
@@ -97,10 +97,10 @@ def main():
     plt.show()
 
     print('end')
-    np.save('data/edmpc_position_error.npy', edmpc_position_error)
-    np.save('data/edmpc_orientation_error.npy', edmpc_orientation_error)
-    np.save('data/nmpc_position_error.npy', nmpc_position_error)
-    np.save('data/nmpc_orientation_error.npy', nmpc_orientation_error)
+    # np.save('data/edmpc_position_error.npy', edmpc_position_error)
+    # np.save('data/edmpc_orientation_error.npy', edmpc_orientation_error)
+    # np.save('data/nmpc_position_error.npy', nmpc_position_error)
+    # np.save('data/nmpc_orientation_error.npy', nmpc_orientation_error)
     np.save('data/fb_position_error.npy', fb_position_error)
     np.save('data/fb_orientation_error.npy', fb_orientation_error)
 

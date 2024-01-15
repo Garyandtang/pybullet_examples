@@ -97,10 +97,14 @@ class ScoutMini(WheeledMobileRobot):
         return self.state, None, None, None
 
     def _set_action_space(self):
-        self.v_min = -5
-        self.v_max = 5
+        self.v_min = -3
+        self.v_max = 3
         self.w_min = -5
         self.w_max = 5
+
+    def get_wheel_vel(self):
+        pass
+        return None
 
 
 

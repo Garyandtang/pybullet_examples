@@ -9,14 +9,24 @@ import os
 import matplotlib.pyplot as plt
 
 def single_tracking_task():
-    env_type = EnvType.SCOUT_MINI
-    controller_type = ControllerType.GMPC
+    env_type = EnvType.TURTLEBOT
+    controller_type = ControllerType.FEEDBACK_LINEARIZATION
     init_state = np.array([0, 0, 0])
+    init_x = np.random.uniform(-0.05, 0.05)
+    init_y = np.random.uniform(-0.05, 0.05)
+    init_theta = np.random.uniform(-np.pi / 6, -np.pi / 12)
+    init_state = np.array([-0.2, -0.2, np.pi / 12])
     traj_config = {'type': TrajType.EIGHT,
               'param': {'start_state': np.array([0, 0, 0]),
                         'dt': 0.02,
                         'scale': 2,
                         'nTraj': 2500}}
+    traj_config = {'type': TrajType.CIRCLE,
+                   'param': {'start_state': np.array([0, 0, 0]),
+                             'linear_vel': 0.15,
+                             'angular_vel': 0.2,
+                             'nTraj': 1500,
+                             'dt': 0.02}}
     traj_gen = TrajGenerator(traj_config)
     ref_state, ref_control, dt = traj_gen.get_traj()
     if controller_type == ControllerType.NMPC:
