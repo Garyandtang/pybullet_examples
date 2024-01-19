@@ -10,6 +10,7 @@ import os
 
 def butterfly_tracking(env_type, controller_type):
     if env_type == EnvType.TURTLEBOT:
+        return
         scale = 0.4
     elif env_type == EnvType.SCOUT_MINI:
         scale = 1.8
@@ -63,7 +64,7 @@ def main():
 
 
 def test():
-    controller_type = ControllerType.GMPC
+    controller_type = ControllerType.NMPC
     env_type = EnvType.SCOUT_MINI
     butterfly_tracking(env_type, controller_type)
 

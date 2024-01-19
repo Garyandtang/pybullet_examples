@@ -7,7 +7,7 @@ from monte_carlo_test_turtlebot import simulation, calulate_trajecotry_error
 from matplotlib import pyplot as plt
 
 def main():
-    init_state = np.array([-0.06, -0.06, 0])
+    init_state = np.array([-0.001, -0.001, 0])
     env_type = EnvType.TURTLEBOT
     root_dir = os.path.join(os.getcwd())
     data_dir = os.path.join(root_dir, 'data', 'linearization_scheme')
@@ -16,7 +16,7 @@ def main():
                         'linear_vel': 0.15,
                         'angular_vel': 0.15,
                         'dt': 0.02,
-                        'nTraj': 16500}}
+                        'nTraj': 1650}}
 
     controller = ErrorDynamicsMPC(traj_config)
     traj_gen = TrajGenerator(traj_config)

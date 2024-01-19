@@ -41,13 +41,13 @@ def main():
         init_theta = np.random.uniform(-np.pi /6, 0)
         init_state = np.array([init_x, init_y, init_theta])
         print('mc_num: ', i)
-        # controller = ErrorDynamicsMPC(traj_config)
-        # store_state, store_control, _ = simulation(init_state, controller, traj_gen, env_type)
-        # edmpc_position_error[i, :], edmpc_orientation_error[i, :] = calulate_trajecotry_error(ref_state, store_state)
-        #
-        # controller = NaiveMPC(traj_config)
-        # store_state, store_control, _ = simulation(init_state, controller, traj_gen, env_type)
-        # nmpc_position_error[i, :], nmpc_orientation_error[i, :] = calulate_trajecotry_error(ref_state, store_state)
+        controller = ErrorDynamicsMPC(traj_config)
+        store_state, store_control, _ = simulation(init_state, controller, traj_gen, env_type)
+        edmpc_position_error[i, :], edmpc_orientation_error[i, :] = calulate_trajecotry_error(ref_state, store_state)
+
+        controller = NaiveMPC(traj_config)
+        store_state, store_control, _ = simulation(init_state, controller, traj_gen, env_type)
+        nmpc_position_error[i, :], nmpc_orientation_error[i, :] = calulate_trajecotry_error(ref_state, store_state)
 
         controller = FBLinearizationController()
         store_state, store_control, _ = simulation(init_state, controller, traj_gen, env_type)
@@ -97,10 +97,10 @@ def main():
     plt.show()
 
     print('end')
-    # np.save('data/edmpc_position_error.npy', edmpc_position_error)
-    # np.save('data/edmpc_orientation_error.npy', edmpc_orientation_error)
-    # np.save('data/nmpc_position_error.npy', nmpc_position_error)
-    # np.save('data/nmpc_orientation_error.npy', nmpc_orientation_error)
+    np.save('data/edmpc_position_error.npy', edmpc_position_error)
+    np.save('data/edmpc_orientation_error.npy', edmpc_orientation_error)
+    np.save('data/nmpc_position_error.npy', nmpc_position_error)
+    np.save('data/nmpc_orientation_error.npy', nmpc_orientation_error)
     np.save('data/fb_position_error.npy', fb_position_error)
     np.save('data/fb_orientation_error.npy', fb_orientation_error)
 
