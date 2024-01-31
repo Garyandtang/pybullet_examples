@@ -157,14 +157,16 @@ class TrajGenerator:
 
 def test_traj_generator():
     traj_config = {'type': TrajType.CIRCLE,
-                   'param': {'start_state': np.array([1, 1, np.pi]),
-                             'linear_vel': 0.5,
-                             'angular_vel': 0.5,
-                             'nTraj': 170,
-                             'dt': 0.05}}
+                   'param': {'start_state': np.array([0, 0, 0]),
+                             'dt': 0.2,
+                             'linear_vel': 0.1,
+                             'angular_vel': 0.05,  # don't change this
+                             'nTraj': 650}}
     traj_generator = TrajGenerator(traj_config)
     ref_traj, ref_v, dt = traj_generator.get_traj()
     plt.figure(1)
+    # show grid
+    plt.grid()
     plt.plot(ref_traj[0, :], ref_traj[1, :], 'b')
     plt.title('Reference Trajectory')
     plt.show()
@@ -220,4 +222,4 @@ def test_generate_eight_traj():
 
 
 if __name__ == '__main__':
-    test_generate_eight_traj()
+    test_traj_generator()

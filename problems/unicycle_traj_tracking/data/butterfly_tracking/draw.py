@@ -41,7 +41,7 @@ def load_data_and_save_figure(data_path):
     line_width = 2
     plt.xticks(fontsize=font_size)
     plt.yticks(fontsize=font_size)
-    pos_lim = 1.4
+    pos_lim = 0.4
     ori_lim = 1.4
     plt.plot(t, orientation_error.T,label='orientation error', linewidth=line_width)
     plt.xlabel("$t~(s)$",fontsize=20)
@@ -59,7 +59,7 @@ def load_data_and_save_figure(data_path):
     plt.yticks(fontsize=font_size)
     plt.plot(t, position_error.T,label='position error', linewidth=line_width)
     plt.xlabel("$t~(s)$",fontsize=font_size)
-    plt.ylabel("$e_p~(s)$",fontsize=font_size)
+    plt.ylabel("$e_p~(m)$",fontsize=font_size)
     plt.legend(fontsize=font_size)
     plt.tight_layout()
     plt.ylim(0, pos_lim)

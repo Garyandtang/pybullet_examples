@@ -9,7 +9,7 @@ import os
 import matplotlib.pyplot as plt
 
 def single_tracking_task():
-    env_type = EnvType.TURTLEBOT
+    env_type = EnvType.SCOUT_MINI
     controller_type = ControllerType.FEEDBACK_LINEARIZATION
     init_state = np.array([0, 0, 0])
     init_x = np.random.uniform(-0.05, 0.05)

@@ -28,6 +28,7 @@ class FBLinearizationController:
         start_time = time.time()
         v_d, w_d = ref_vel_cmd
         state_diff = ref_state - curr_state
+        state_diff[2] = np.arctan2(np.sin(state_diff[2]), np.cos(state_diff[2]))
         frame_rot = np.array([[np.cos(curr_state[2]), np.sin(curr_state[2]), 0],
                               [-np.sin(curr_state[2]), np.cos(curr_state[2]), 0],
                               [0, 0, 1]])
