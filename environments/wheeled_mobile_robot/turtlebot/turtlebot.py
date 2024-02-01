@@ -65,9 +65,10 @@ class Turtlebot(WheeledMobileRobot):
         twist = np.array([v, w])
         return twist
 
-    def vel_cmd_to_action(self, vel_cmd):
-        # vel_cmd: [v, w] in m/s linear and angular velocity
+    def twist_to_control(self, twist):
+        # twist: [v, 0, w] in m/s linear and angular velocity
         # action: [v_l, v_r] in m/s left and right wheel velocity
+        vel_cmd = np.array([twist[0], twist[2]])
         vel_cmd = self.saturate_vel_cmd(vel_cmd)
         v = vel_cmd[0]
         w = vel_cmd[1]

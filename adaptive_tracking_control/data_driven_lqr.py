@@ -24,13 +24,6 @@ class training_data:
         self.A = np.zeros((n, n))
         self.B = np.zeros((n, m))
 
-# self.A = np.array([[0, 1], [-1, -1]])
-#         self.B = np.array([[0], [1]])
-#
-#         self.Q = np.array([[1, 0], [0, 1]])
-#         self.R = np.array([[1]])
-#
-#         self.K0 = np.array([[0.7, 0.5]])
 class LTI:
     def __init__(self):
         self.system_init()
@@ -52,7 +45,7 @@ class LTI:
                                      [0, 0],
                                      [-r / l, r / l]])
         self.c = -self.dt * self.twist
-        # self.c = np.zeros((3,))
+
 
         self.Q = 200 * np.eye(3)
         self.R = 0.2 * np.eye(2)
@@ -63,18 +56,11 @@ class LTI:
         self.K_ini = self.K0
         self.k0 = -np.linalg.pinv(self.B) @ self.c
 
-        # self.K0 = np.array([[-0.70278886,  0.01032037,  0.7067451 ],
-        #                     [-0.70601027, -0.01844283, -0.70708518]])
-        # self.k0 = np.array([0.47268588, 0.61144209])
-
 
     def step(self, x, u):
         # assert u.shape[0] == self.B.shape[1]
         # assert x.shape[0] == self.A.shape[0]
         x_next = self.A @ x + self.B @ u + self.c
-        # check nan
-        if np.isnan(x_next).any():
-            print("nan")
         return x_next
 
     def action(self, x):
@@ -162,7 +148,7 @@ def simulation(lti, learning=False):
     data.R = lti.R
     data.A = lti.A
     data.B = lti.B
-    nTraj = 1600
+    nTraj = 1200
     traj_config = {'type': TrajType.CIRCLE,
                    'param': {'start_state': np.zeros((3,)),
                              'linear_vel': lti.twist[0],

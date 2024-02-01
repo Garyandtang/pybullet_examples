@@ -20,7 +20,7 @@ def main():
         curr_state = env.get_state()
         print('curr_state: ', curr_state)
         vel_cmd = np.array([0.5, 0.3])
-        action = env.vel_cmd_to_action(vel_cmd)
+        action = env.twist_to_control(vel_cmd)
         print('action: ', action)
         end = time.time()
         print('time: ', end - start)

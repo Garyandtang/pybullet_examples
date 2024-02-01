@@ -12,7 +12,7 @@ import scipy
 
 
 def main():
-    mc_num = 50
+    mc_num = 2
     env_type = EnvType.TURTLEBOT
     # set init state
     # set trajetory
@@ -97,12 +97,12 @@ def main():
     plt.show()
 
     print('end')
-    np.save('data/edmpc_position_error.npy', edmpc_position_error)
-    np.save('data/edmpc_orientation_error.npy', edmpc_orientation_error)
-    np.save('data/nmpc_position_error.npy', nmpc_position_error)
-    np.save('data/nmpc_orientation_error.npy', nmpc_orientation_error)
-    np.save('data/fb_position_error.npy', fb_position_error)
-    np.save('data/fb_orientation_error.npy', fb_orientation_error)
+    # np.save('data/edmpc_position_error.npy', edmpc_position_error)
+    # np.save('data/edmpc_orientation_error.npy', edmpc_orientation_error)
+    # np.save('data/nmpc_position_error.npy', nmpc_position_error)
+    # np.save('data/nmpc_orientation_error.npy', nmpc_orientation_error)
+    # np.save('data/fb_position_error.npy', fb_position_error)
+    # np.save('data/fb_orientation_error.npy', fb_orientation_error)
 
 
 def calulate_trajecotry_error(ref_SE2, store_SE2):
@@ -154,7 +154,8 @@ def simulation(init_state, controller, traj_gen, env_type, gui=False):
         # print('xi: ', vel_cmd)
         # print('curr_twist:', env.get_twist())
         t += dt
-        env.step(env.vel_cmd_to_action(vel_cmd))
+        twist = np.array([vel_cmd[0], 0, vel_cmd[1]])
+        env.step(env.twist_to_control(twist))
 
     store_state[:, -1] = env.get_state()
     store_control[:, -1] = env.get_twist()
