@@ -97,12 +97,12 @@ def main():
     plt.show()
 
     print('end')
-    # np.save('data/edmpc_position_error.npy', edmpc_position_error)
-    # np.save('data/edmpc_orientation_error.npy', edmpc_orientation_error)
-    # np.save('data/nmpc_position_error.npy', nmpc_position_error)
-    # np.save('data/nmpc_orientation_error.npy', nmpc_orientation_error)
-    # np.save('data/fb_position_error.npy', fb_position_error)
-    # np.save('data/fb_orientation_error.npy', fb_orientation_error)
+    np.save('data/edmpc_position_error.npy', edmpc_position_error)
+    np.save('data/edmpc_orientation_error.npy', edmpc_orientation_error)
+    np.save('data/nmpc_position_error.npy', nmpc_position_error)
+    np.save('data/nmpc_orientation_error.npy', nmpc_orientation_error)
+    np.save('data/fb_position_error.npy', fb_position_error)
+    np.save('data/fb_orientation_error.npy', fb_orientation_error)
 
 
 def calulate_trajecotry_error(ref_SE2, store_SE2):

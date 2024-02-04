@@ -44,7 +44,7 @@ def load_data_and_save_figure(data_path):
     pos_lim = 0.4
     ori_lim = 1.4
     plt.plot(t, orientation_error.T,label='orientation error', linewidth=line_width)
-    plt.xlabel("$t~(s)$",fontsize=20)
+    plt.xlabel("$t~(s)$",fontsize=font_size)
     plt.ylabel("$e_R~(rad)$",fontsize=font_size)
     plt.legend(fontsize=font_size)
     plt.tight_layout()

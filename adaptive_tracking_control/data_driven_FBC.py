@@ -28,16 +28,27 @@ class LTI:
     def __init__(self):
         self.system_init()
         self.controller_init()
+        self.get_optimal_control()
 
+    def get_optimal_control(self):
+        optimal_l = 0.23
+        optimal_r = 0.036
+        optimal_B = self.dt * np.array([[optimal_r / 2, optimal_r / 2],
+                              [0, 0],
+                              [-optimal_r / optimal_l, optimal_r / optimal_l]])
+
+        self.k_optimal = -np.linalg.pinv(optimal_B) @ self.c
+        self.K_optimal = -ct.dlqr(self.A, optimal_B, self.Q, self.R)[0]
+        self.B_optimal = optimal_B
 
     def system_init(self):
-        l = np.random.uniform(0.2, 0.3)
-        r = np.random.uniform(0.02, 0.04)
-        l = 0.4
-        r = 0.036
+        l = np.random.uniform(0.1, 0.35)
+        r = np.random.uniform(0.03, 0.04)
+        # l = 0.23
+        # r = 0.036
         self.dt = 0.02
-        self.v = 0.2
-        self.w = 0.3
+        self.v = 0.02
+        self.w = 0.2
         self.twist = np.array([self.v, 0, self.w])
         adj = -SE2Tangent(self.twist).smallAdj()
         self.A = np.eye(3) + self.dt * adj
@@ -47,15 +58,17 @@ class LTI:
         self.c = -self.dt * self.twist
 
 
-        self.Q = 20 * np.eye(3)
-        self.R = 0.2 * np.eye(2)
+        self.Q = 200 * np.eye(3)
+        self.R = 10 * np.eye(2)
 
 
     def controller_init(self):
         self.K0 = -ct.dlqr(self.A, self.B, self.Q, self.R)[0]
         self.K_ini = self.K0
         self.k0 = -np.linalg.pinv(self.B) @ self.c
-
+        self.k_ini = self.k0
+        self.B_ini = self.B
+        self.r_init, self.l_init = calculate_r_l(self.B, self.dt)
 
     def step(self, x, u):
         # assert u.shape[0] == self.B.shape[1]
@@ -92,6 +105,53 @@ class LTI:
     def update_B(self, B):
         self.B = B
 
+def evaluation(lti, nTraj=500):
+    K = lti.K0
+    k = lti.k0
+    n = lti.A.shape[0]
+    m = lti.B.shape[1]
+
+    traj_config = {'type': TrajType.CIRCLE,
+                   'param': {'start_state': np.zeros((3,)),
+                             'linear_vel': lti.twist[0],
+                             'angular_vel': lti.twist[2],
+                             'nTraj': nTraj,
+                             'dt': lti.dt}}
+    traj_gen = TrajGenerator(traj_config)
+    ref_state, ref_velocity, dt = traj_gen.get_traj()
+    robot = WMRSimulator()
+
+    state_container = np.zeros((n, nTraj - 1))
+    ref_state_container = np.zeros((n, nTraj - 1))
+    control_container = np.zeros((m, nTraj - 1))
+    ref_control_container = np.zeros((m, nTraj - 1))
+    wheel_velocity_container = np.zeros((2, nTraj - 1))
+    for i in range(nTraj - 1):
+        curr_state = robot.get_state()
+        state_container[:, i] = curr_state
+        curr_ref = ref_state[:, i]
+        ref_state_container[:, i] = curr_ref
+        x = SE2(curr_ref[0], curr_ref[1], curr_ref[2]).between(
+            SE2(curr_state[0], curr_state[1], curr_state[2])).log().coeffs()
+        u = K @ x + k
+
+        control_container[:, i] = u
+        control_container[:, i] = wheel_velocity_container[:, i]
+        ref_control_container[:, i] = robot.twist_to_control(np.array([ref_velocity[0, i], 0, ref_velocity[1, i]]))
+
+        next_state, _, _, _, _ = robot.step(u)
+
+    # plt.figure()
+    # plt.plot(ref_state[0, :nTraj - 1], ref_state[1, :nTraj - 1], 'b')
+    # plt.plot(state_container[0, :nTraj - 1], state_container[1, :nTraj - 1], 'r')
+    # plt.title('learning: {}'.format(learning))
+    # legend = ['ref', 'actual']
+    # plt.legend(legend)
+    # plt.show()
+
+    return state_container[0, :], state_container[1, :]
+
+
 def simulation(lti, learning=False):
     K = lti.K0
     k = lti.k0
@@ -106,7 +166,7 @@ def simulation(lti, learning=False):
     data.R = lti.R
     data.A = lti.A
     data.B = lti.B
-    nTraj = 2000
+    nTraj = 300
     traj_config = {'type': TrajType.CIRCLE,
                    'param': {'start_state': np.zeros((3,)),
                              'linear_vel': lti.twist[0],
@@ -137,8 +197,9 @@ def simulation(lti, learning=False):
         error_container[:, i] = x
         u = K @ x + k
         if learning:
-            u = u + np.random.normal(0, 2, (m,))
-            # u = u + np.random.uniform(-10, 10, (m,))
+            # u = u + np.sin(np.random.normal(0, 1, (m,)) * 0.1) + np.cos(np.random.normal(0, 1, (m,)) * 0.1)
+            u = u + np.random.normal(0, 0.1, (m,))
+            # u = u + np.random.uniform(-0.2, 0.2, (m,))
         # wheel_velocity_container[:, i] = robot.get_wheel_vel()
         control_container[:, i] = u
         control_container[:, i] = wheel_velocity_container[:, i]
@@ -220,6 +281,7 @@ def calculate_r_l(B, dt):
     print("r: ", r)
     print("l: ", l)
     return r, l
+
 def learning(lti):
     # lti = LTI()
     n = lti.A.shape[0]
@@ -229,7 +291,7 @@ def learning(lti):
     data_container = simulation(lti, True)
     K_prev = np.zeros((m, n))
     k_prev = np.zeros((m,))
-    while np.linalg.norm(data_container.K - K_prev) > 0.01 or np.linalg.norm(data_container.k - k_prev) > 0.01:
+    while np.linalg.norm(data_container.K - K_prev) > 0.02 or np.linalg.norm(data_container.k - k_prev) > 0.02:
         # if iteration > 0:
         #     break
         K_prev = data_container.K
@@ -250,19 +312,22 @@ def learning(lti):
         k = -np.linalg.pinv(B) @ lti.c
         data_container.K = K
         data_container.k = k
-        print("current K: ", K)
-        print("current k: ", k)
-        print("optimal K: ", lti.get_optimal_K())
-        print("error K: ", data_container.K - K_prev)
-        print("error k: ", data_container.k - k_prev)
-        print("====================================")
+        # print("current K: ", K)
+        # print("current k: ", k)
+        # print("optimal K: ", lti.optimal_K)
+        # print("error K: ", data_container.K - K_prev)
+        # print("error k: ", data_container.k - k_prev)
+        # print("====================================")
         iteration += 1
+        if iteration > 50:
+            return K, k, B, False
     print("K: ", K)
     print("k: ", k)
     # print("Recovered B: ", B)
     lti.update_k0(k)
     lti.update_K0(K)
     lti.update_B(B)
+    return K, k, B, True
 
 
 
@@ -297,21 +362,94 @@ def solve_S_from_data_collect(data, Q, R, gamma):
     S = S.reshape((2*n + m, 2*n + m))
     return S
 
+# def MonteCarlo():
+#     totalSim = 1
+#     iteration = 5
+#     y_max = 0.8
+#     y_min = -0.3
+#     K0_container = np.zeros((totalSim, iteration))
+#     K1_container = np.zeros((totalSim, iteration))
+#     K2_container = np.zeros((totalSim, iteration))
+#     K3_container = np.zeros((totalSim, iteration))
+#     K4_container = np.zeros((totalSim, iteration))
+#     K5_container = np.zeros((totalSim, iteration))
+#     k0_container = np.zeros((totalSim, iteration))
+#     k1_container = np.zeros((totalSim, iteration))
+#     lti = LTI()
+#
+#     for i in range(totalSim):
+#
+#         optimal_K = lti.K_optimal
+#         optimal_k = lti.k_optimal
+#         for j in range(iteration):
+#             K, k, B = learning(lti)
+#             K0_container[i, j] = K[0, 0] - optimal_K[0, 0]
+#             K1_container[i, j] = K[0, 1] - optimal_K[0, 1]
+#             K2_container[i, j] = K[0, 2] - optimal_K[0, 2]
+#             K3_container[i, j] = K[1, 0] - optimal_K[1, 0]
+#             K4_container[i, j] = K[1, 1] - optimal_K[1, 1]
+#             K5_container[i, j] = K[1, 2] - optimal_K[1, 2]
+#             k0_container[i, j] = k[0] - optimal_k[0]
+#             k1_container[i, j] = k[1] - optimal_k[1]
+#
+#     print("init K: ", lti.K_ini)
+#     print("init k: ", lti.k_ini)
+#     print("optimal K: ", lti.K_optimal)
+#     print("optimal k: ", lti.k_optimal)
+#     print("K0: ", lti.K0)
+#     print("k0: ", lti.k0)
+#     plt.figure()
+#     plt.plot(K0_container.T)
+#     plt.title("K0")
+#     plt.ylim([y_min, y_max])
+#     plt.show()
+#
+#     plt.figure()
+#     plt.plot(K1_container.T)
+#     plt.title("K1")
+#     plt.ylim([y_min, y_max])
+#     plt.show()
+#
+#     plt.figure()
+#     plt.plot(K2_container.T)
+#     plt.title("K2")
+#     plt.ylim([y_min, y_max])
+#     plt.show()
+#
+#     plt.figure()
+#     plt.plot(K3_container.T)
+#     plt.title("K3")
+#     plt.ylim([y_min, y_max])
+#     plt.show()
+#
+#     plt.figure()
+#     plt.plot(K4_container.T)
+#     plt.title("K4")
+#     plt.ylim([y_min, y_max])
+#     plt.show()
+#
+#     plt.figure()
+#     plt.plot(K5_container.T)
+#     plt.title("K5")
+#     plt.ylim([y_min, y_max])
+#     plt.show()
+#
+#     plt.figure()
+#     plt.plot(k0_container.T)
+#     plt.title("k0")
+#     plt.ylim([y_min, y_max])
+#     plt.show()
+#
+#     plt.figure()
+#     plt.plot(k1_container.T)
+#     plt.title("k1")
+#     plt.ylim([y_min, y_max])
+#     plt.show()
+#     print("end")
+
 
 if __name__ == '__main__':
-    lti = LTI()
-    simulation(lti, False)
-
-    for i in range(5):
-        learning(lti)
-    simulation(lti, False)
-    calculate_r_l(lti.B, lti.dt)
-    # learning()
-    print("optimal B: ", lti.B)
-    print("optimal K = ", lti.get_optimal_K())
-    print("optimal k = ", lti.get_optimal_k())
-
-    print("norm of K and optimal K: ", np.linalg.norm(lti.K0 - lti.get_optimal_K()))
+    MonteCarlo()
 
 
 
