@@ -1,7 +1,7 @@
 from data_driven_FBC import *
 import os
 
-def get_data():
+def get_training_data():
     lti = LTI()
     nTraj = 300
     _, _, error_container, control_container = evaluation(lti, nTraj, learning=True)
@@ -72,4 +72,4 @@ def get_data():
 
 
 if __name__ == '__main__':
-    get_data()
+    get_training_data()
