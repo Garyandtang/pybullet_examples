@@ -42,10 +42,10 @@ class LTI:
         self.B_optimal = optimal_B
 
     def system_init(self):
-        l = np.random.uniform(0.1, 0.35)
+        l = np.random.uniform(0.2, 0.28)
         r = np.random.uniform(0.03, 0.04)
-        # l = 0.23
-        # r = 0.036
+        l = 0.23
+        r = 0.036
         self.dt = 0.02
         self.v = 0.02
         self.w = 0.2
@@ -319,7 +319,7 @@ def learning(lti):
         # print("error k: ", data_container.k - k_prev)
         # print("====================================")
         iteration += 1
-        if iteration > 50:
+        if iteration > 100:
             return K, k, B, False
     print("K: ", K)
     print("k: ", k)

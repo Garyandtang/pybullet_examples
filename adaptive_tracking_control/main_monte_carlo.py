@@ -24,7 +24,8 @@ def MonteCarlo():
     y_init_container = np.zeros((totalSim, nTraj - 1))
 
     totalFail = 0
-    for i in range(totalSim):
+    i = 0
+    while i < totalSim:
         lti = LTI()
         x_init_container[i, :], y_init_container[i, :] = evaluation(lti, nTraj)
         r_container[i, 0], l_container[i, 0] = calculate_r_l(lti.B, lti.dt)
@@ -36,7 +37,7 @@ def MonteCarlo():
                 print("failed to learn")
                 totalFail += 1
                 i = i - 1
-                continue
+                break
             r, l = calculate_r_l(B, lti.dt)
             K0_container[i, j] = K[0, 0] - optimal_K[0, 0]
             K1_container[i, j] = K[0, 1] - optimal_K[0, 1]
@@ -50,6 +51,7 @@ def MonteCarlo():
             l_container[i, j+1] = l
 
         x_trained_container[i, :], y_trained_container[i, :] = evaluation(lti, nTraj)
+        i = i + 1
 
     font_size = 12
     line_width = 2
@@ -58,7 +60,7 @@ def MonteCarlo():
     data_path = os.path.join(dirpath, "data")
     # plot init x and y in the same figure
     plt.figure()
-
+    plt.grid(True)
 
 
     plt.xticks(fontsize=font_size-2)
@@ -73,6 +75,7 @@ def MonteCarlo():
 
     # plot trained x and y in the same figure
     plt.figure()
+    plt.grid(True)
     plt.xticks(fontsize=font_size-2)
     plt.yticks(fontsize=font_size-2)
     plt.plot(x_trained_container.T, y_trained_container.T, linewidth=line_width)
@@ -85,6 +88,8 @@ def MonteCarlo():
     # plot r
     x = np.arange(0, iteration+1, 1)
     plt.figure()
+    # show grid
+    plt.grid(True)
     plt.xticks(fontsize=font_size - 2)
     plt.yticks(fontsize=font_size - 2)
     plt.plot(x, r_container.T, linewidth=line_width)
@@ -96,6 +101,7 @@ def MonteCarlo():
 
     # plot l
     plt.figure()
+    plt.grid(True)
     plt.xticks(fontsize=font_size - 2)
     plt.yticks(fontsize=font_size - 2)
 
@@ -120,12 +126,13 @@ def MonteCarlo():
 
     print("failed to learn: ", totalFail)
     # save data
-    np.save('data/good/r_container.npy', r_container)
-    np.save('data/good/l_container.npy', l_container)
-    np.save('data/good/x_init_container.npy', x_init_container)
-    np.save('data/good/y_init_container.npy', y_init_container)
-    np.save('data/good/x_trained_container.npy', x_trained_container)
-    np.save('data/good/y_trained_container.npy', y_trained_container)
+    np.save('data/r_container.npy', r_container)
+    np.save('data/l_container.npy', l_container)
+    np.save('data/x_init_container.npy', x_init_container)
+    np.save('data/y_init_container.npy', y_init_container)
+    np.save('data/x_trained_container.npy', x_trained_container)
+    np.save('data/y_trained_container.npy', y_trained_container)
+
 
 
 if __name__ == '__main__':
