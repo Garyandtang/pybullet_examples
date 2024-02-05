@@ -59,7 +59,7 @@ class LTI:
 
 
         self.Q = 200 * np.eye(3)
-        self.R = 10 * np.eye(2)
+        self.R = 0.2 * np.eye(2)
 
 
     def controller_init(self):
@@ -105,7 +105,7 @@ class LTI:
     def update_B(self, B):
         self.B = B
 
-def evaluation(lti, nTraj=500):
+def evaluation(lti, nTraj=500, learning=False):
     K = lti.K0
     k = lti.k0
     n = lti.A.shape[0]
@@ -126,6 +126,7 @@ def evaluation(lti, nTraj=500):
     control_container = np.zeros((m, nTraj - 1))
     ref_control_container = np.zeros((m, nTraj - 1))
     wheel_velocity_container = np.zeros((2, nTraj - 1))
+    error_container = np.zeros((n, nTraj - 1))
     for i in range(nTraj - 1):
         curr_state = robot.get_state()
         state_container[:, i] = curr_state
@@ -133,10 +134,14 @@ def evaluation(lti, nTraj=500):
         ref_state_container[:, i] = curr_ref
         x = SE2(curr_ref[0], curr_ref[1], curr_ref[2]).between(
             SE2(curr_state[0], curr_state[1], curr_state[2])).log().coeffs()
+        error_container[:, i] = x
         u = K @ x + k
-
+        if learning:
+            # u = u + np.sin(np.random.normal(0, 1, (m,)) * 0.1) + np.cos(np.random.normal(0, 1, (m,)) * 0.1)
+            u = u + np.random.normal(0, 0.1, (m,))
+            # u = u + np.random.uniform(-0.2, 0.2, (m,))
         control_container[:, i] = u
-        control_container[:, i] = wheel_velocity_container[:, i]
+        # control_container[:, i] = wheel_velocity_container[:, i]
         ref_control_container[:, i] = robot.twist_to_control(np.array([ref_velocity[0, i], 0, ref_velocity[1, i]]))
 
         next_state, _, _, _, _ = robot.step(u)
@@ -149,7 +154,11 @@ def evaluation(lti, nTraj=500):
     # plt.legend(legend)
     # plt.show()
 
-    return state_container[0, :], state_container[1, :]
+
+
+
+
+    return state_container[0, :], state_container[1, :], error_container, control_container
 
 
 def simulation(lti, learning=False):

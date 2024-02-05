@@ -11,12 +11,12 @@ from environments.numerical_simulator.WMR_simulator import WMRSimulator
 from data_driven_FBC import LTI, calculate_r_l
 import casadi as ca
 class time_varying_LQR:
-    def __init__(self, traj_config, lti):
-        self.system_init(traj_config, lti)
+    def __init__(self, traj_config, lti, r, l):
+        self.system_init(traj_config, lti, r, l)
         self.controller_init()
         pass
 
-    def system_init(self, traj_config, lti):
+    def system_init(self, traj_config, lti, r, l):
         self.Q = lti.Q
         self.R = lti.R
 
@@ -25,8 +25,10 @@ class time_varying_LQR:
         self.ref_state = ref_state
         self.ref_control = ref_control # [v, w]
         self.nTraj = ref_state.shape[1]
-
-        B_list = [lti.B for i in range(self.nTraj)]
+        B = dt * np.array([[r / 2, r / 2],
+                            [0, 0],
+                            [-r / l, r / l]])
+        B_list = [B for i in range(self.nTraj)]
         self.B_list = np.array(B_list)
         A_list = []
         for i in range(self.nTraj):
@@ -114,13 +116,7 @@ class time_varying_LQR:
         u_sol = sol.value(u_var)
         return u_sol[:, 0]
 
-if __name__ == '__main__':
-    traj_config = {'type': TrajType.CIRCLE,
-                   'param': {'start_state': np.zeros((3,)),
-                             'linear_vel': 0.02,
-                             'angular_vel': 0.2,
-                             'nTraj': 17,
-                             'dt': 0.02}}
+def time_varying_simulation(r, l):
     traj_config = {'type': TrajType.EIGHT,
                    'param': {'start_state': np.array([0, 0, 0]),
                              'dt': 0.02,
@@ -128,55 +124,74 @@ if __name__ == '__main__':
                              'nTraj': 2500}}
 
     lti = LTI()
-    lqr = time_varying_LQR(traj_config, lti)
-    state_container = np.zeros((3, lqr.nTraj-1))
-    x_container = np.zeros((3, lqr.nTraj-1))
+    lqr = time_varying_LQR(traj_config, lti, r, l)
+    state_container = np.zeros((3, lqr.nTraj - 1))
+    x_container = np.zeros((3, lqr.nTraj - 1))
     ref_state_container = lqr.ref_state
     robot = WMRSimulator()
-    for i in range(lqr.nTraj-1):
+    robot.set_init_state(np.array([0.1, -0.1, np.pi / 6]))
+    vel_container = np.zeros((2, lqr.nTraj - 1))
+    for i in range(lqr.nTraj - 1):
         curr_state = robot.get_state()
         state_container[:, i] = curr_state
         u = lqr.mpc_step(curr_state, i)
+        vel = robot.control_to_twist(u)
+        vel = np.array([vel[0], vel[2]])
+        vel_container[:, i] = vel
         next_state, _, _, _, _ = robot.step(u)
         x = SE2(ref_state_container[0, i], ref_state_container[1, i], ref_state_container[2, i]).between(
             SE2(curr_state[0], curr_state[1], curr_state[2])).log().coeffs()
         x_container[:, i] = x
+    return state_container, vel_container, lqr.ref_state, x_container, lqr.ref_control
 
+if __name__ == '__main__':
+    init_state_container, init_vel_container, ref_state_container, init_x_container, ref_vel = time_varying_simulation(0.03, 0.3)
+    trained_state_container, trained_vel_container, trained_ref_state_container, x_container, ref_vel = time_varying_simulation(0.036, 0.23)
     # plot trajectory
-    font_size = 12
+    font_size = 15
     line_width = 2
     plt.figure()
     plt.grid(True)
-    plt.plot(ref_state_container[0, :lqr.nTraj - 1], ref_state_container[1, :lqr.nTraj - 1], 'b')
-    plt.plot(state_container[0, :], state_container[1, :], 'r')
+    plt.xticks(fontsize=font_size - 4)
+    plt.yticks(fontsize=font_size - 4)
+    plt.plot(init_state_container[0, :], init_state_container[1, :], 'b')
+    plt.plot(trained_state_container[0, :], trained_state_container[1, :], 'r')
+    plt.plot(ref_state_container[0, :], ref_state_container[1, :], 'g')
+    plt.legend(['init trajectory', 'trained trajectory', 'reference trajectory'], fontsize=font_size - 2)
     plt.xlabel("$x~(m)$", fontsize=font_size)
     plt.ylabel("$y~(m)$", fontsize=font_size)
-    name = "trained_trajectory.jpg"
+    name = "time_vary_trajectory.jpg"
+    plt.savefig(name)
     plt.show()
 
-    # plot x
+    # plot vel[0]
     plt.figure()
     plt.grid(True)
-    plt.plot(x_container.T)
-    plt.ylim([-0.15, 0.15])
+    plt.xticks(fontsize=font_size - 4)
+    plt.yticks(fontsize=font_size - 4)
+    plt.plot(init_vel_container[0, :], 'b')
+    plt.plot(trained_vel_container[0, :], 'r')
+    plt.plot(ref_vel[0, :], 'g')
+    plt.legend(['initial $v$', 'trained $v$', 'reference $v$'], fontsize=font_size - 2)
     plt.xlabel("k", fontsize=font_size)
-    plt.ylabel("$x$", fontsize=font_size)
-    name = "trained_x.jpg"
+    plt.ylabel("$v~(m/s)$", fontsize=font_size)
+    name = "time_vary_v.jpg"
+    plt.savefig(name)
     plt.show()
 
-    # # plot init x and y in the same figure
-    # plt.figure()
-    # plt.grid(True)
-    #
-    # font_size = 12
-    # line_width = 2
-    # plt.xticks(fontsize=font_size - 2)
-    # plt.yticks(fontsize=font_size - 2)
-    # plt.plot(lqr.ref_state[0, :], lqr.ref_state[1, :], linewidth=line_width)
-    # # plt.tight_layout()
-    # plt.xlabel("$x~(m)$", fontsize=font_size)
-    # plt.ylabel("$y~(m)$", fontsize=font_size)
-    # name = "init_trajectory.jpg"
-    #
-    # plt.show()
-    # pass
+    # plot vel[1]
+    plt.figure()
+    plt.grid(True)
+    plt.xticks(fontsize=font_size - 4)
+    plt.yticks(fontsize=font_size - 4)
+    plt.plot(init_vel_container[1, :], 'b')
+    plt.plot(trained_vel_container[1, :], 'r')
+    plt.plot(ref_vel[1, :], 'g')
+    plt.legend(['initial $w$', 'trained $w$', 'reference $w$'], fontsize=font_size - 2)
+    plt.xlabel("k", fontsize=font_size)
+    plt.ylabel("$w~(rad/s)$", fontsize=font_size)
+    name = "time_vary_w.jpg"
+    plt.savefig(name)
+    plt.show()
+
+
