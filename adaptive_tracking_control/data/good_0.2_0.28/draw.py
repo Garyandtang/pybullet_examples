@@ -51,16 +51,8 @@ def main():
     # plot r
     iteration = r_container.shape[1] - 1
     x = np.arange(0, iteration + 1, 1)
-    plt.figure()
-    plt.grid(True)
-    plt.xticks(fontsize=font_size - 2)
-    plt.yticks(fontsize=font_size - 2)
-    plt.plot(x, r_container.T, linewidth=line_width)
-    plt.xlabel("iteration", fontsize=font_size)
-    plt.ylabel("$r~(m)$", fontsize=font_size)
-    name = "trained_r.jpg"
-    plt.savefig(name)
-    plt.show()
+
+
 
     # plot l
     plt.figure()
@@ -75,6 +67,16 @@ def main():
     plt.savefig(name)
     plt.show()
 
+    plt.figure()
+    plt.grid(True)
+    plt.xticks(fontsize=font_size - 2)
+    plt.yticks(fontsize=font_size - 2)
+    plt.plot(x, r_container.T, linewidth=line_width)
+    plt.xlabel("iteration", fontsize=font_size)
+    plt.ylabel("$r~(m)$", fontsize=font_size)
+    name = "trained_r.jpg"
+    plt.savefig(name)
+    plt.show()
 
 
 if __name__ == '__main__':
