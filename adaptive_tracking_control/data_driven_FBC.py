@@ -44,8 +44,8 @@ class LTI:
     def system_init(self):
         l = np.random.uniform(0.2, 0.28)
         r = np.random.uniform(0.03, 0.04)
-        l = 0.23
-        r = 0.036
+        # l = 0.23
+        # r = 0.036
         self.dt = 0.02
         self.v = 0.02
         self.w = 0.2
@@ -59,7 +59,7 @@ class LTI:
 
 
         self.Q = 200 * np.eye(3)
-        self.R = 0.2 * np.eye(2)
+        self.R = 10 * np.eye(2)
 
 
     def controller_init(self):
@@ -175,7 +175,7 @@ def simulation(lti, learning=False):
     data.R = lti.R
     data.A = lti.A
     data.B = lti.B
-    nTraj = 300
+    nTraj = 1300
     traj_config = {'type': TrajType.CIRCLE,
                    'param': {'start_state': np.zeros((3,)),
                              'linear_vel': lti.twist[0],

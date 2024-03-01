@@ -156,8 +156,8 @@ if __name__ == '__main__':
     plt.yticks(fontsize=font_size - 4)
     plt.plot(init_state_container[0, :], init_state_container[1, :], 'b')
     plt.plot(trained_state_container[0, :], trained_state_container[1, :], 'r')
-    plt.plot(ref_state_container[0, :], ref_state_container[1, :], 'g')
-    plt.legend(['init trajectory', 'trained trajectory', 'reference trajectory'], fontsize=font_size - 2)
+    plt.plot(ref_state_container[0, :], ref_state_container[1, :], 'g', linestyle='-.')
+    plt.legend(['trajectory with initial model', 'trajectory with trained model', 'reference trajectory'], fontsize=font_size - 2)
     plt.xlabel("$x~(m)$", fontsize=font_size)
     plt.ylabel("$y~(m)$", fontsize=font_size)
     name = "time_vary_trajectory.jpg"
@@ -171,8 +171,8 @@ if __name__ == '__main__':
     plt.yticks(fontsize=font_size - 4)
     plt.plot(init_vel_container[0, :], 'b')
     plt.plot(trained_vel_container[0, :], 'r')
-    plt.plot(ref_vel[0, :], 'g')
-    plt.legend(['initial $v$', 'trained $v$', 'reference $v$'], fontsize=font_size - 2)
+    plt.plot(ref_vel[0, :], 'g',linestyle='-.')
+    plt.legend(['$v$ with initial model', '$v$ with trained model', 'reference $v$'], fontsize=font_size - 2)
     plt.xlabel("k", fontsize=font_size)
     plt.ylabel("$v~(m/s)$", fontsize=font_size)
     name = "time_vary_v.jpg"
@@ -186,12 +186,29 @@ if __name__ == '__main__':
     plt.yticks(fontsize=font_size - 4)
     plt.plot(init_vel_container[1, :], 'b')
     plt.plot(trained_vel_container[1, :], 'r')
-    plt.plot(ref_vel[1, :], 'g')
-    plt.legend(['initial $w$', 'trained $w$', 'reference $w$'], fontsize=font_size - 2)
+    plt.plot(ref_vel[1, :], 'g',linestyle='-.')
+    plt.legend(['$w$ with initial model', '$w$ with trained model', 'reference $w$'], fontsize=font_size - 2)
     plt.xlabel("k", fontsize=font_size)
     plt.ylabel("$w~(rad/s)$", fontsize=font_size)
     name = "time_vary_w.jpg"
     plt.savefig(name)
     plt.show()
 
-
+    # plot position error
+    font_size = 15
+    line_width = 2
+    plt.figure()
+    plt.grid(True)
+    plt.xticks(fontsize=font_size - 4)
+    plt.yticks(fontsize=font_size - 4)
+    plt.plot(x_container[0, :], 'b')
+    plt.plot(x_container[1, :], 'r')
+    plt.plot(x_container[2, :], 'g')
+    plt.legend(['$x$', '$y$', '$\\theta$'], fontsize=font_size - 2)
+    plt.xlabel("k", fontsize=font_size)
+    plt.ylabel("$x~(m)$", fontsize=font_size)
+    name = "time_vary_x.jpg"
+    plt.savefig(name)
+    plt.show()
+    # print last x_container
+    print(x_container[:, -1])

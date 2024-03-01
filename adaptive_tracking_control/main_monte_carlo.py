@@ -1,5 +1,6 @@
 from data_driven_FBC import *
 import os
+import time
 from matplotlib import ticker
 def MonteCarlo():
     totalSim = 50
@@ -25,14 +26,19 @@ def MonteCarlo():
 
     totalFail = 0
     i = 0
+    avg_learning_time = 0
     while i < totalSim:
         lti = LTI()
-        x_init_container[i, :], y_init_container[i, :] = evaluation(lti, nTraj)
+        x_init_container[i, :], y_init_container[i, :], _, _ = evaluation(lti, nTraj)
         r_container[i, 0], l_container[i, 0] = calculate_r_l(lti.B, lti.dt)
         optimal_K = lti.K_optimal
         optimal_k = lti.k_optimal
         for j in range(iteration):
+            start_time = time.time()
             K, k, B, successful = learning(lti)
+            learning_time = time.time() - start_time
+            avg_learning_time += learning_time
+            print("learning time: ", learning_time)
             if not successful:
                 print("failed to learn")
                 totalFail += 1
@@ -50,9 +56,10 @@ def MonteCarlo():
             r_container[i, j+1] = r
             l_container[i, j+1] = l
 
-        x_trained_container[i, :], y_trained_container[i, :] = evaluation(lti, nTraj)
+        x_trained_container[i, :], y_trained_container[i, :], _, _ = evaluation(lti, nTraj)
         i = i + 1
-
+    avg_learning_time = avg_learning_time / (totalSim * iteration)
+    print("avg learning time: ", avg_learning_time)
     font_size = 12
     line_width = 2
     # dirpath

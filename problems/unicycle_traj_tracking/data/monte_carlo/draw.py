@@ -51,8 +51,8 @@ plt.ylim(0, pos_max)
 plt.grid()
  
 
-plt.xlabel("$t~(s)$",fontsize=font_size)
-plt.ylabel("$e_p~(m)$",fontsize=font_size)
+plt.xlabel("$t~(s)$",fontsize=font_size+2)
+plt.ylabel("$e_p~(m)$",fontsize=font_size+2)
 plt.savefig("nmpc_position_error.jpg")
 plt.show()
 
@@ -63,8 +63,8 @@ plt.plot(t[:end], nmpc_orientation_error.T[:end, :], label='nmpc')
 plt.ylim(0, ori_max)
 plt.grid()
  
-plt.xlabel("$t~(s)$",fontsize=font_size)
-plt.ylabel("$e_R~(rad)$",fontsize=font_size)
+plt.xlabel("$t~(s)$",fontsize=font_size+2)
+plt.ylabel("$e_R~(rad)$",fontsize=font_size+2)
 plt.savefig("nmpc_orientation_error.jpg")
 plt.show()
 
@@ -75,8 +75,8 @@ plt.plot(t[:end], fb_position_error.T[:end, :], label='fb')
 plt.ylim(0, pos_max)
 plt.grid()
  
-plt.xlabel("$t~(s)$",fontsize=font_size)
-plt.ylabel("$e_p~(m)$", fontsize=font_size)
+plt.xlabel("$t~(s)$",fontsize=font_size+2)
+plt.ylabel("$e_p~(m)$", fontsize=font_size+2)
 plt.savefig("fb_position_error.jpg")
 plt.show()
 
@@ -89,8 +89,8 @@ plt.ylim(0, ori_max)
 plt.grid()
  
 # use latex
-plt.xlabel("$t~(s)$",fontsize=font_size)
-plt.ylabel("$e_R~(rad)$",fontsize=font_size)
+plt.xlabel("$t~(s)$",fontsize=font_size+2)
+plt.ylabel("$e_R~(rad)$",fontsize=font_size+2)
 plt.savefig("fb_orientation_error.jpg")
 plt.show()
 
