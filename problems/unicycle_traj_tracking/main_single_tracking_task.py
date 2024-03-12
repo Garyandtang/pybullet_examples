@@ -15,7 +15,7 @@ def single_tracking_task():
     init_x = np.random.uniform(-0.05, 0.05)
     init_y = np.random.uniform(-0.05, 0.05)
     init_theta = np.random.uniform(-np.pi / 6, -np.pi / 12)
-    init_state = np.array([-0.2, -0.2, np.pi / 12])
+    init_state = np.array([0, 0, 0])
     traj_config = {'type': TrajType.EIGHT,
               'param': {'start_state': np.array([0, 0, 0]),
                         'dt': 0.02,

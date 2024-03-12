@@ -60,12 +60,12 @@ class ScoutMini(WheeledMobileRobot):
 
 
 
-    def vel_cmd_to_action(self, vel_cmd):
+    def twist_to_control(self, twist):
         # vel_cmd: [v, w] in m/s linear and angular velocity
         # action: [v_rear_r, v_front_r, v_rear_l, v_rear_r] in m/s left and right wheel velocity
         # the dir of left and right wheel is opposite
-        v = -vel_cmd[0]
-        w = vel_cmd[1]
+        v = -twist[0]
+        w = twist[2]
         v, w = self.saturate_vel_cmd(np.array([v, w]))
         left_side_vel = v - w * self.robot_WHEELBASE / 2
         right_side_vel = v + w * self.robot_WHEELBASE / 2

@@ -150,9 +150,10 @@ def simulation(init_state, controller, traj_gen, env_type, gui=False):
             curr_ref_vel_cmd = ref_control[:, i]
             vel_cmd = controller.feedback_control(curr_state, curr_ref_state, curr_ref_vel_cmd)
         store_solve_time[i] = controller.get_solve_time()
-        # print('curr_state: ', curr_state)
-        # print('xi: ', vel_cmd)
-        # print('curr_twist:', env.get_twist())
+        print('curr_state: ', curr_state)
+        print('xi: ', vel_cmd)
+        print('curr_twist:', env.get_twist())
+        print('ref_twist:', ref_control[:, i])
         t += dt
         twist = np.array([vel_cmd[0], 0, vel_cmd[1]])
         env.step(env.twist_to_control(twist))

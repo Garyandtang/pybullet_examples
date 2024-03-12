@@ -85,10 +85,10 @@ class TrajGenerator:
             # calculate twist
             vel_cmd = np.array([v, w])
             twist = np.array([v, 0, w])
-            self.ref_control[:, i] = vel_cmd
             X = SE2(self.ref_state[0, i], self.ref_state[1, i], self.ref_state[2, i])
-            X = X + SE2Tangent(twist * self.dt)
-            self.ref_state[:, i + 1] = np.array([X.x(), X.y(), X.angle()])
+            X_next = X + SE2Tangent(twist * self.dt)
+            self.ref_state[:, i + 1] = np.array([X_next.x(), X_next.y(), X_next.angle()])
+            self.ref_control[:, i + 1] = vel_cmd
             # increment time
             if t == T:
                 t = 0.0

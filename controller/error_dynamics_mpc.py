@@ -46,7 +46,6 @@ class ErrorDynamicsMPC:
         self.solve_time = 0.0
         self.setup_solver()
         self.set_ref_traj(ref_traj_config)
-        self.setup_solver()
         self.set_control_bound()
 
 
