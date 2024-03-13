@@ -156,7 +156,7 @@ if __name__ == '__main__':
     plt.yticks(fontsize=font_size - 4)
     plt.plot(init_state_container[0, :], init_state_container[1, :], 'b')
     plt.plot(trained_state_container[0, :], trained_state_container[1, :], 'r')
-    plt.plot(ref_state_container[0, :], ref_state_container[1, :], 'g', linestyle='-.')
+        plt.plot(ref_state_container[0, :], ref_state_container[1, :], 'g', linestyle='-.')
     plt.legend(['trajectory with initial model', 'trajectory with trained model', 'reference trajectory'], fontsize=font_size - 2)
     plt.xlabel("$x~(m)$", fontsize=font_size)
     plt.ylabel("$y~(m)$", fontsize=font_size)

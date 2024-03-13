@@ -54,7 +54,7 @@ class ErrorDynamicsMPC:
         self.ref_state, self.ref_control, self.dt = traj_generator.get_traj()
         self.nTraj = self.ref_state.shape[1]
 
-    def setup_solver(self, Q=[10000, 10000, 2000], R=0.05, N=10):
+    def setup_solver(self, Q=[200, 200, 20], R=3, N=10):
         self.Q = np.diag(Q)
         self.R = R * np.diag(np.ones(self.nControl))
         self.N = N

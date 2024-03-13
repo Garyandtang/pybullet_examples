@@ -112,7 +112,7 @@ class NaiveMPC:
         self.set_control_bound()
         self.cost_func = self.model.cost_func
 
-    def set_solver(self, q=[300, 300, 0], R=1, N=10):
+    def set_solver(self, q=[200, 200, 0], R=0.8, N=10):
         self.Q = np.diag(q)
         self.R = R * np.eye(self.model.nu)
         self.N = N

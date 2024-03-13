@@ -75,6 +75,7 @@ class WheeledMobileRobot(gym.Env, ABC):
     def draw_ref_traj(self, ref_SE2):
         # todo: change to draw line, put SE2 outside this class
         # ref_se2: [x, y, cos(theta), sin(theta)]
+        return
         if not self.DEBUG or not self.GUI:
             return
         ref_traj = np.zeros((3, ref_SE2.shape[1]))
