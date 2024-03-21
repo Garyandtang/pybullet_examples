@@ -12,7 +12,7 @@ def single_tracking_task():
     # set wheel mobile robot
     env_type = EnvType.SCOUT_MINI
     # set controller
-    controller_type = ControllerType.FEEDBACK_LINEARIZATION
+    controller_type = ControllerType.GMPC
     # set init state
     init_state = np.array([0, 0, 0])
     # set reference trajetory
