@@ -3,7 +3,7 @@ import scipy.linalg
 import matplotlib.pyplot as plt
 from manifpy import SE2, SE2Tangent, SO2, SO2Tangent
 import math
-from controller.ref_traj_generator import TrajGenerator
+from planner.ref_traj_generator import TrajGenerator
 from utils.enum_class import TrajType, CostType, DynamicsType
 from controllers.lqr.lqr_utils import *
 import casadi as ca
@@ -108,11 +108,11 @@ class NonlinearMPC:
         self.nControl = self.model.nu  # 2 (v, w)
         self.solve_time = 0.0
         self.set_ref_traj(ref_traj_config)
-        self.set_solver()
+        self.setup_solver()
         self.set_control_bound()
         self.cost_func = self.model.cost_func
 
-    def set_solver(self, q=[200, 200, 0], R=0.8, N=10):
+    def setup_solver(self, q=[200, 200, 0], R=0.8, N=10):
         self.Q = np.diag(q)
         self.R = R * np.eye(self.model.nu)
         self.N = N

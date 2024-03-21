@@ -5,7 +5,7 @@ import numpy as np
 from utils.enum_class import TrajType, ControllerType
 from controller.nonlinear_mpc import NonlinearMPC
 from controller.geometric_mpc import GeometricMPC
-from controller.ref_traj_generator import TrajGenerator
+from planner.ref_traj_generator import TrajGenerator
 from manifpy import SE2
 import rospy
 import math

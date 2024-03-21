@@ -1,13 +1,13 @@
 import os
 import numpy as np
 from utils.enum_class import TrajType, EnvType, LiniearizationType
-from controller.error_dynamics_mpc import ErrorDynamicsMPC
-from controller.ref_traj_generator import TrajGenerator
+from controller.geometric_mpc import GeometricMPC
+from planner.ref_traj_generator import TrajGenerator
 from monte_carlo_test_turtlebot import simulation, calulate_trajecotry_error
 from matplotlib import pyplot as plt
 
 def main():
-    init_state = np.array([-0.001, -0.001, 0])
+    init_state = np.array([-0.06, -0.06, 0])
     env_type = EnvType.TURTLEBOT
     root_dir = os.path.join(os.getcwd())
     data_dir = os.path.join(root_dir, 'data', 'linearization_scheme')
@@ -18,12 +18,12 @@ def main():
                         'dt': 0.02,
                         'nTraj': 1650}}
 
-    controller = ErrorDynamicsMPC(traj_config)
+    controller = GeometricMPC(traj_config)
     traj_gen = TrajGenerator(traj_config)
     ref_state, ref_control, dt = traj_gen.get_traj()
 
     store_state, store_control, store_solve_time = simulation(init_state, controller, traj_gen, env_type, gui=False)
-    controller = ErrorDynamicsMPC(traj_config, linearization_type=LiniearizationType.WEDGE)
+    controller = GeometricMPC(traj_config, linearization_type=LiniearizationType.WEDGE)
     store_state_1, store_control_1, store_solve_time_1 = simulation(init_state, controller, traj_gen, env_type, gui=False)
 
     position_error, orientation_error = calulate_trajecotry_error(store_state, ref_state)

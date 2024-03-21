@@ -3,7 +3,7 @@ from utils.enum_class import TrajType, ControllerType, EnvType
 from controller.nonlinear_mpc import NonlinearMPC
 from controller.feedback_linearization import FBLinearizationController
 from controller.geometric_mpc import GeometricMPC
-from controller.ref_traj_generator import TrajGenerator
+from planner.ref_traj_generator import TrajGenerator
 from monte_carlo_test_turtlebot import calulate_trajecotry_error, simulation
 import os
 

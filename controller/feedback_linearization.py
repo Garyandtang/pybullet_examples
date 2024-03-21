@@ -6,8 +6,7 @@ from manifpy import SE2, SE2Tangent, SO2, SO2Tangent
 import casadi as ca
 import math
 from utils.enum_class import WMRType, TrajType, ControllerType
-from controller.ref_traj_generator import TrajGenerator
-
+from planner.ref_traj_generator import TrajGenerator
 
 class FBLinearizationController:
     def __init__(self, Kp=np.array([2, 2, 2])):
