@@ -98,7 +98,7 @@ class UnicycleModel:
         self.symbolic = FirstOrderModel(dynamics, cost, self.dt, params)
 
 
-class NaiveMPC:
+class NonlinearMPC:
     def __init__(self, ref_traj_config, model_config={}):
         self.controllerType = ControllerType.NMPC
         config = model_config
@@ -205,85 +205,14 @@ class NaiveMPC:
         return self.controllerType
 
 
-def test_mpc():
-    init_state = np.array([-0.2, -0.2, 0])
-    traj_config = {'type': TrajType.CIRCLE,
-                   'param': {'start_state': np.array([0, 0, 0]),
-                             'linear_vel': 0.5,
-                             'angular_vel': 0.5,
-                             'nTraj': 600,
-                             'dt': 0.02}}
-    ref_traj_generator = TrajGenerator(traj_config)
-    ref_SE2, ref_twist, dt = ref_traj_generator.get_traj()
-    model_config = {'cost_type': CostType.POSITION_EULER,
-              'dynamics_type': DynamicsType.EULER_FIRST_ORDER}
-    mpc = NaiveMPC(traj_config, model_config=model_config)
-
-    t = 0
-    # contrainer to store state and twist
-    SE2_store = np.zeros((4, mpc.nTraj))
-    SE2_store[:, 0] = SE2(init_state[0], init_state[1], init_state[2]).coeffs()
-    twist_store = np.zeros((3, mpc.nTraj))
-    dyn = mpc.model.fc_func
-    # start simulation
-    for i in range(mpc.nTraj - 1):
-        curr_SE2 = SE2_store[:, i]
-        state = np.array([curr_SE2[0], curr_SE2[1], SE2(curr_SE2).angle()])
-        vel_cmd = mpc.solve(state, t)
-        xi = mpc.vel_cmd_to_local_twist(vel_cmd)
-        twist_store[:, i] = xi.full().flatten()
-        X = SE2(curr_SE2)
-        X = X + SE2Tangent(xi*mpc.dt)
-        SE2_store[:, i + 1] = X.coeffs()
-        t += mpc.dt
-
-
-
-    # plot
-    plt.figure()
-    plt.plot(ref_SE2[0, :], ref_SE2[1, :], 'r')
-    plt.plot(SE2_store[0, :], SE2_store[1, :], 'b')
-    plt.legend(['reference', 'trajectory'])
-
-    plt.show()
-
-    # plot distance difference
-    distance_store = np.linalg.norm(SE2_store[0:2, :] - ref_SE2[0:2, :], axis=0)
-    plt.figure()
-    plt.plot(distance_store)
-    plt.title('distance difference')
-    plt.show()
-
-    # plot orientation difference
-    orientation_store = np.zeros(mpc.nTraj)
-    for i in range(mpc.nTraj):
-        X_d = SE2(ref_SE2[:, i])
-        X = SE2(SE2_store[:, i])
-        X_d_inv_X = SO2(X_d.angle()).between(SO2(X.angle()))
-        orientation_store[i] = scipy.linalg.norm(X_d_inv_X.log().coeffs())
-
-    plt.figure()
-    plt.plot(orientation_store[0:])
-    plt.title('orientation difference')
-
-    plt.show()
-
-    # plot twist difference
-    twist_diff = np.linalg.norm(twist_store - ref_twist, axis=0)
-    plt.figure()
-    plt.plot(twist_diff)
-    plt.title('twist difference')
-    plt.show()
-
-
-def wrap_angle(angle):
-    if angle > np.pi:
-        angle -= 2 * np.pi
-    elif angle < -np.pi:
-        angle += 2 * np.pi
-    return angle
 
 
 if __name__ == '__main__':
-    # test_generate_ref_traj()
-    test_mpc()
+    traj_config = {'type': TrajType.CIRCLE,
+                     'param': {'start_state': np.array([0, 0, 0]),
+                              'dt': 0.2,
+                              'linear_vel': 0.1,
+                              'angular_vel': 0.05,  # don't change this
+                              'nTraj': 650}}
+    controller = NonlinearMPC(traj_config)
+

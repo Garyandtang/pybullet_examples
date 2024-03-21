@@ -2,9 +2,9 @@ from environments.wheeled_mobile_robot.turtlebot.turtlebot import Turtlebot
 from environments.wheeled_mobile_robot.scout.scout_mini import ScoutMini
 import numpy as np
 from utils.enum_class import TrajType, ControllerType, EnvType
-from controller.naive_mpc import NaiveMPC
+from controller.nonlinear_mpc import NonlinearMPC
 from controller.feedback_linearization import FBLinearizationController
-from controller.error_dynamics_mpc import ErrorDynamicsMPC
+from controller.geometric_mpc import GeometricMPC
 from controller.ref_traj_generator import TrajGenerator
 from manifpy import SE2, SO2
 import matplotlib.pyplot as plt
@@ -41,11 +41,11 @@ def main():
         init_theta = np.random.uniform(-np.pi /6, 0)
         init_state = np.array([init_x, init_y, init_theta])
         print('mc_num: ', i)
-        controller = ErrorDynamicsMPC(traj_config)
+        controller = GeometricMPC(traj_config)
         store_state, store_control, _ = simulation(init_state, controller, traj_gen, env_type)
         edmpc_position_error[i, :], edmpc_orientation_error[i, :] = calulate_trajecotry_error(ref_state, store_state)
 
-        controller = NaiveMPC(traj_config)
+        controller = NonlinearMPC(traj_config)
         store_state, store_control, _ = simulation(init_state, controller, traj_gen, env_type)
         nmpc_position_error[i, :], nmpc_orientation_error[i, :] = calulate_trajecotry_error(ref_state, store_state)
 

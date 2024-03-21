@@ -3,8 +3,8 @@ sys.path.append("../..")
 from environments.wheeled_mobile_robot.scout.scout_mini import ScoutMini
 import numpy as np
 from utils.enum_class import TrajType, ControllerType
-from controller.naive_mpc import NaiveMPC
-from controller.error_dynamics_mpc import ErrorDynamicsMPC
+from controller.nonlinear_mpc import NonlinearMPC
+from controller.geometric_mpc import GeometricMPC
 from controller.ref_traj_generator import TrajGenerator
 from manifpy import SE2
 import rospy
@@ -100,9 +100,9 @@ def main():
     # set controller
     ctrl_type = ControllerType.GMPC
     if ctrl_type == ControllerType.NMPC:
-        controller = NaiveMPC(traj_config)
+        controller = NonlinearMPC(traj_config)
     elif ctrl_type == ControllerType.GMPC:
-        controller = ErrorDynamicsMPC(traj_config)
+        controller = GeometricMPC(traj_config)
     controller.set_control_bound(0, 0.06, -0.8, 0.8)
     t = 0
     store_solve_time = np.zeros(ref_state.shape[1] - 1)

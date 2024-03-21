@@ -1,8 +1,8 @@
 import numpy as np
 from utils.enum_class import TrajType, ControllerType, EnvType
-from controller.naive_mpc import NaiveMPC
+from controller.nonlinear_mpc import NonlinearMPC
 from controller.feedback_linearization import FBLinearizationController
-from controller.error_dynamics_mpc import ErrorDynamicsMPC
+from controller.geometric_mpc import GeometricMPC
 from controller.ref_traj_generator import TrajGenerator
 from monte_carlo_test_turtlebot import calulate_trajecotry_error, simulation
 import os
@@ -24,9 +24,9 @@ def butterfly_tracking(env_type, controller_type):
     traj_gen = TrajGenerator(traj_config)
     ref_state, ref_control, dt = traj_gen.get_traj()
     if controller_type == ControllerType.NMPC:
-        controller = NaiveMPC(traj_config)
+        controller = NonlinearMPC(traj_config)
     elif controller_type == ControllerType.GMPC:
-        controller = ErrorDynamicsMPC(traj_config)
+        controller = GeometricMPC(traj_config)
     elif controller_type == ControllerType.FEEDBACK_LINEARIZATION:
         controller = FBLinearizationController()
     else:

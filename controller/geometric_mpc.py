@@ -9,7 +9,7 @@ from controller.ref_traj_generator import TrajGenerator
 from utils.enum_class import TrajType, ControllerType, LiniearizationType
 
 """
-this ErrorDynamicsMPC class is used to solve tracking problem of uni-cycle model
+this GeometricMPC class is used to solve tracking problem of uni-cycle model
 using MPC. The error dynamics is defined as follows:
 error dynamics:
     psi_dot = At * psi_t + Bt * ut + ht
@@ -29,7 +29,7 @@ the reference trajectory is generated using TrajGenerator class in ref_traj_gene
 """
 
 
-class ErrorDynamicsMPC:
+class GeometricMPC:
     def __init__(self, ref_traj_config, linearization_type=LiniearizationType.ADJ):
         self.controllerType = ControllerType.GMPC
         self.nState = 3  # twist error (se2 vee) R^3
@@ -164,7 +164,7 @@ def test_mpc():
                              'nTraj': 170,
                              'dt': 0.05}}
 
-    mpc = ErrorDynamicsMPC(traj_config)
+    mpc = GeometricMPC(traj_config)
     ref_SE2 = mpc.ref_state
     init_state = np.array([0.5, 0.5, 0])
     t = 0
@@ -203,8 +203,8 @@ def test_mpc():
     # plot orientation difference
     orientation_store = np.zeros(mpc.nTraj)
     for i in range(mpc.nTraj):
-        X_d = SE2(ref_SE2[:, i])
-        X = SE2(state_store[:, i])
+        X_d = SE2(ref_SE2[0, i], ref_SE2[1, i], ref_SE2[2, i])
+        X = SE2(state_store[0, i], state_store[1, i], state_store[2, i])
         X_d_inv_X = SO2(X_d.angle()).between(SO2(X.angle()))
         orientation_store[i] = scipy.linalg.norm(X_d_inv_X.log().coeffs())
 
@@ -223,82 +223,6 @@ def test_mpc():
     plt.show()
 
 
-def test_pose_regulation():
-    # init_state = np.array([5, 5, 0])
-    # config = {'type': TrajType.POSE_REGULATION,
-    #           'param': {'end_state': np.array([0, 0,- np.pi / 2]),
-    #                     'dt': 0.05,
-    #                     'nTraj': 670}}
-    # traj_generator = TrajGenerator(config)
-    init_state = np.array([1, 1, 0])
-    end_state = np.array([0, 0, 0])
-    config = {'type': TrajType.POSE_REGULATION,
-              'param': {'end_state': end_state,
-                        'dt': 0.05,
-                        'nTraj': 170}}
-    traj_generator = TrajGenerator(config)
-    ref_SE2, ref_twist, dt = traj_generator.get_traj()
-    mpc = ErrorDynamicsMPC(config)
-    # container for recording SE2 state and twist
-    nSE2 = 4
-    nTwist = 3
-    store_SE2 = np.zeros((nSE2, ref_SE2.shape[1]))
-    store_twist = np.zeros((nTwist, ref_SE2.shape[1]))
-    store_SE2[:, 0] = SE2(init_state[0], init_state[1], init_state[2]).coeffs()
-
-    t = 0
-    for i in range(ref_SE2.shape[1] - 1):
-        curr_SE2 = store_SE2[:, i]
-        curr_ref_SE2 = ref_SE2[:, i]
-        curr_ref_twist = ref_twist[:, i]
-        X = SE2(curr_SE2)
-        # curr_vel_cmd = mpc.solve(np.array([X.x(),X.y(),X.angle()]),t)
-        curr_vel_cmd = mpc.solve(curr_SE2, t)
-        curr_twist = mpc.vel_cmd_to_local_twist(curr_vel_cmd)
-        store_twist[:, i] = curr_twist.full().flatten()
-        # next SE2 state
-        next_SE2 = SE2(curr_SE2) + SE2Tangent(curr_twist) * dt
-        store_SE2[:, i + 1] = next_SE2.coeffs()
-        t += dt
-
-    # plot
-    plt.figure()
-    plt.plot(store_SE2[0, :], store_SE2[1, :], 'b')
-    # draw end state
-    plt.plot(end_state[0], end_state[1], 'r*')
-    # draw start state
-    plt.plot(init_state[0], init_state[1], 'g*')
-
-
-    plt.show()
-
-    # # plot (x, y, theta) pose figure with arrow
-    # plt.figure()
-    # plt.plot(store_SE2[0, :], store_SE2[1, :], 'b')
-    # plt.plot(ref_SE2[0, :], ref_SE2[1, :], 'r')
-    # plt.quiver(store_SE2[0, :], store_SE2[1, :], np.cos(store_SE2[2, :]), np.sin(store_SE2[2, :]), color='b')
-    # plt.quiver(ref_SE2[0, :], ref_SE2[1, :], np.cos(ref_SE2[2, :]), np.sin(ref_SE2[2, :]), color='r')
-    # plt.show()
-
-    # plot distance error
-    plt.figure()
-    plt.plot(np.linalg.norm(store_SE2[0:2, :] - ref_SE2[0:2, :], axis=0))
-    plt.title('distance error')
-    plt.show()
-
-    # # plot angle error
-    # plt.figure()
-    # orientation_store = np.zeros(ref_SE2.shape[1])
-    # for i in range(ref_SE2.shape[1]):
-    #     X_d = SE2(ref_SE2[:, i])
-    #     X = SE2(store_SE2[:, i])
-    #     X_d_inv_X = SO2(X_d.angle()).between(SO2(X.angle()))
-    #     orientation_store[i] = scipy.linalg.norm(X_d_inv_X.log().coeffs())
-    #
-    # plt.figure()
-    # plt.plot(orientation_store[0:])
-    # plt.title('orientation difference')
-    # plt.show()
 
 if __name__ == '__main__':
     # test_generate_ref_traj()
