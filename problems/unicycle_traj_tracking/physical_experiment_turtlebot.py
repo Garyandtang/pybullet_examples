@@ -98,7 +98,7 @@ def main():
     ref_state, ref_control, dt = traj_gen.get_traj()
     state_container = np.zeros((3, ref_state.shape[1] - 1))
     # set controller
-    ctrl_type = ControllerType.NMPC
+    ctrl_type = ControllerType.GMPC
     if ctrl_type == ControllerType.NMPC:
         controller = NaiveMPC(traj_config)
     elif ctrl_type == ControllerType.GMPC:

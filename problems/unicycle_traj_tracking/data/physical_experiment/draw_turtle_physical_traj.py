@@ -17,7 +17,7 @@ nmpc_state_contain = np.load('nonlinear_model_predictive_control_store_state.npy
 plt.figure()
 plt.plot(gmpc_state_contain[0, :], gmpc_state_contain[1, :], label='gmpc')
 plt.plot(ref_state[0, :], ref_state[1, :], label='ref')
-plt.plot(nmpc_state_contain[0, :], nmpc_state_contain[1, :], label='nmpc')
+# plt.plot(nmpc_state_contain[0, :], nmpc_state_contain[1, :], label='nmpc')
 plt.title("trajectory")
 plt.xlabel("x")
 plt.ylabel("y")

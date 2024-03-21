@@ -10,8 +10,7 @@ import os
 
 def butterfly_tracking(env_type, controller_type):
     if env_type == EnvType.TURTLEBOT:
-        return
-        scale = 0.4
+        scale = 0.2
     elif env_type == EnvType.SCOUT_MINI:
         scale = 1.8
     init_state = np.array([0, 0, 0])
