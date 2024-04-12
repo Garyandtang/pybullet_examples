@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from liecasadi import SO3, SO3Tangent, SE3Tangent, SE3
 from utils.enum_class import TrajType, ControllerType
-from controller.ref_traj_generator import TrajGenerator
+from planner.ref_traj_generator import TrajGenerator
 from controller.se3_traj_generator import SE3TrajGenerator
 import manifpy as manif
 import time
@@ -28,7 +28,7 @@ class SE3MPC:
         self.ref_state, self.ref_control, self.dt = traj_generator.get_traj()
         self.nTraj = self.ref_state.shape[1]
 
-    def setup_solver(self, Q=100, R=1, nPred=10):
+    def setup_solver(self, Q=50, R=1, nPred=4):
         self.Q = Q * np.diag(np.ones(self.nTwist))
         self.R = R * np.diag(np.ones(self.nTwist))
         self.nPred = nPred
@@ -91,10 +91,14 @@ class SE3MPC:
             opti.subject_to(twist[i, :] <= self.twist_max[i])
 
         # solve
-        opti.solver("ipopt")
+        opts_setting = {'ipopt.max_iter': 1000, 'ipopt.print_level': 0, 'print_time': 0, 'ipopt.acceptable_tol': 1e-8,
+                        'ipopt.acceptable_obj_change_tol': 1e-6}
+
+        opti.solver("ipopt", opts_setting)
         sol = opti.solve()
         self.solve_time = time.time() - start_time
-
+        print("solve time: ", self.solve_time)
+        print("freq: ", 1./self.solve_time)
         return sol.value(twist[:, 0])
 
 

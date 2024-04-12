@@ -7,6 +7,7 @@ from planner.ref_traj_generator import TrajGenerator
 from monte_carlo_test_turtlebot import simulation
 import os
 import matplotlib.pyplot as plt
+from utils.enum_class import CostType, DynamicsType, ControllerType
 
 def single_tracking_task():
     # set wheel mobile robot
@@ -28,10 +29,10 @@ def single_tracking_task():
                              'v_scale': 1,
                              'nTraj': 2500}}
     traj_gen = TrajGenerator(traj_config)
-    ref_state, ref_control, dt = traj_gen.get_traj()
 
     if controller_type == ControllerType.NMPC:
-        controller = NonlinearMPC(traj_config)
+        config = {'cost_type': CostType.POSITION_EULER, 'dynamics_type': DynamicsType.EULER_FIRST_ORDER}
+        controller = NonlinearMPC(traj_config,config)
     elif controller_type == ControllerType.GMPC:
         controller = GeometricMPC(traj_config)
     elif controller_type == ControllerType.FEEDBACK_LINEARIZATION:
@@ -45,10 +46,6 @@ def single_tracking_task():
 
     store_SE2, store_twist, store_solve_time = simulation(init_state, controller, traj_gen, env_type, gui=True)
 
-    # quartile chart
-    plt.figure()
-    plt.boxplot(store_solve_time, 0, '')
-    plt.show()
 
     if not os.path.exists(os.path.join(os.path.dirname(__file__), 'data', 'single_tracking_task')):
         os.mkdir(os.path.join(os.path.dirname(__file__), 'data', 'single_tracking_task'))

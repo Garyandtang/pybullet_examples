@@ -2,7 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib
 import scipy.io as sio
-from controller.ref_traj_generator import TrajGenerator
+from planner.ref_traj_generator import TrajGenerator
 from utils.enum_class import TrajType
 matplotlib.use('TkAgg')
 traj_config = {'type': TrajType.EIGHT,
@@ -27,7 +27,7 @@ plt.yticks(fontsize=font_size)
 
 
 plt.plot(ref_state[0, :], ref_state[1, :],  label='reference trajectory', linewidth=line_width)
-plt.plot(gmpc_state_contain[0, :], gmpc_state_contain[1, :], label='simulation trajectory', linewidth=line_width)
+plt.plot(gmpc_state_contain[0, :], gmpc_state_contain[1, :], label='actual trajectory', linewidth=line_width)
 
 plt.xlabel("$x~(m)$",fontsize=font_size)
 plt.ylabel("$y~(m)$",fontsize=font_size)
@@ -43,7 +43,7 @@ plt.yticks(fontsize=font_size)
 
 
 plt.plot(ref_state[0, :], ref_state[1, :],  label='reference trajectory', linewidth=line_width)
-plt.plot(nmpc_state_contain[0, :], nmpc_state_contain[1, :], label='simulation trajectory', linewidth=line_width)
+plt.plot(nmpc_state_contain[0, :], nmpc_state_contain[1, :], label='actual trajectory', linewidth=line_width)
 plt.xlabel("$x~(m)$",fontsize=font_size)
 plt.ylabel("$y~(m)$",fontsize=font_size)
 plt.tight_layout()

@@ -1,6 +1,6 @@
 import numpy as np
 import scipy.linalg as la
-
+from manifpy import SE2, SE2Tangent, SO2, SO2Tangent, SO3Tangent, SO3
 
 def time_varying_lqr(A_list, B_list, Q_list, R_list):
     """
@@ -36,13 +36,24 @@ def time_varying_lqr(A_list, B_list, Q_list, R_list):
     return K_list
 
 
-# Example usage
-A_list = [np.array([[1, 1], [0, 1]]) for _ in range(5)]
-B_list = [np.array([[0], [1]]) for _ in range(5)]
-Q_list = [np.eye(2) for _ in range(5)]
-R_list = [np.eye(1) for _ in range(5)]
+# # Example usage
+# A_list = [np.array([[1, 1], [0, 1]]) for _ in range(5)]
+# B_list = [np.array([[0], [1]]) for _ in range(5)]
+# Q_list = [np.eye(2) for _ in range(5)]
+# R_list = [np.eye(1) for _ in range(5)]
+#
+# K_list = time_varying_lqr(A_list, B_list, Q_list, R_list)
+#
+# # Storing all K values in a NumPy array
+# K_array = np.array(K_list)
 
-K_list = time_varying_lqr(A_list, B_list, Q_list, R_list)
+a = np.array([0.1, 0.2, 0.3])
+b = np.array([0.4, 0.5, 0.6])
+A = SO3Tangent(a).hat()
+B = SO3Tangent(b).hat()
 
-# Storing all K values in a NumPy array
-K_array = np.array(K_list)
+Ba = B @ a
+BA = B @ A
+
+print("Ba: ", SO3Tangent(Ba).hat())
+print("BA: ", BA)
