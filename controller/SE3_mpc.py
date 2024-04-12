@@ -101,6 +101,8 @@ class SE3MPC:
         print("freq: ", 1./self.solve_time)
         return sol.value(twist[:, 0])
 
+    def get_solve_time(self):
+        return self.solve_time
 
 
 def test_SE3MPC():
