@@ -7,13 +7,14 @@ from planner.ref_traj_generator import TrajGenerator
 from controller.se3_traj_generator import SE3TrajGenerator
 import manifpy as manif
 import time
+import pybullet as p
 
 class SE3MPC:
     def __init__(self, ref_traj_config):
         self.controllerType = ControllerType.SE3MPC
         self.nPos = 3  # [x, y, z]
         self.nQuat = 4  # [qx, qy, qz, qw]
-        self.nTwist = 6  # [vx, vy, vz, wx, wy, wz]
+        self.nTwist = 2  # [vx, vy, vz, wx, wy, wz]
         self.nControl = None # todo: not implemented yet
         self.nTraj = None
         self.dt = None
@@ -28,9 +29,10 @@ class SE3MPC:
         self.ref_state, self.ref_control, self.dt = traj_generator.get_traj()
         self.nTraj = self.ref_state.shape[1]
 
-    def setup_solver(self, Q=500, R=1, nPred=4):
+    def setup_solver(self, Q=100, R=1, nPred=7):
         self.Q = Q * np.diag(np.array([1, 1, 1, 1, 1, 1]))
         self.R = R * np.diag(np.ones(self.nTwist))
+        # self.R = R * np.diag(np.array([1,0,0,0,0,1]))
         self.nPred = nPred
 
     def set_control_bound(self, v_min, v_max, w_min, w_max):
@@ -63,6 +65,8 @@ class SE3MPC:
             curr_SE3 = SE3(pos[:, i], quat[:, i])
             next_SE3 = SE3(pos[:, i + 1], quat[:, i + 1])
             curr_se3 = SE3Tangent(twist[:, i]*dt)
+            # temp = np.array([twist[0, i], 0, 0, 0, 0, twist[1, i]])
+            # curr_se3 = SE3Tangent(temp * dt)
             forward_SE3 = curr_SE3 * curr_se3.exp()
             opti.subject_to(forward_SE3.pos == next_SE3.pos)
             opti.subject_to(forward_SE3.xyzw == next_SE3.xyzw)
@@ -118,16 +122,18 @@ def test_SE3MPC():
     dt = controller.dt
     nTraj = controller.nTraj
 
-    init_state = np.array([0, 0, 0, 1, 0, 0, 0])
+    init_state = np.array([0, 0, 0, 0, 0, 0, 1])
     store_state = np.zeros((7, nTraj))
     store_control = np.zeros((6, nTraj - 1))
     store_state[:, 0] = init_state
     t = 0
     for i in range(nTraj - 1):
         curr_state = store_state[:, i]
+        print("curr_rpy: ", p.getEulerFromQuaternion(curr_state[3:]))
         curr_control = controller.solve(curr_state, t)
+        curr_control = np.array([curr_control[0], 0,0,0,0, curr_control[-1]])
         store_control[:, i] = curr_control
-
+        print("curr control: ", curr_control)
         curr_SE3 = manif.SE3(curr_state[:3], curr_state[3:])
         curr_se3 = manif.SE3Tangent(curr_control * dt)
         next_SE3 = curr_SE3 + curr_se3
@@ -165,6 +171,30 @@ def test_SE3MPC():
     ax.plot(ref_state[0, :], ref_state[1, :], 'or')
     plt.show()
 
+    # plot z
+    fig = plt.figure()
+    ax = plt.figure().add_subplot()
+    ax.plot(store_state[2, :])
+    ax.plot(ref_state[2, :], 'or')
+
+
+    plt.show()
+
+    # plot x
+    fig = plt.figure()
+    ax = plt.figure().add_subplot()
+    ax.plot(store_state[0, :])
+    ax.plot(ref_state[0, :], 'or')
+    # legend
+
+    plt.show()
+
+    # plot y
+    fig = plt.figure()
+    ax = plt.figure().add_subplot()
+    ax.plot(store_state[1, :])
+    ax.plot(ref_state[1, :], 'or')
+    plt.show()
 
 
 

@@ -28,7 +28,7 @@ def single_tracking_task():
     #                          'nTraj': 1500,
     #                          'dt': 0.02}}
     traj_config = {'type': TrajType.POSE_REGULATION,
-              'param': {'end_pos': np.array([0.5, 0.5, 0]),
+              'param': {'end_pos': np.array([1, 1, 0]),
                         'end_euler': np.array([0, 0, 0]),
                         'dt': 0.02,
                         'nTraj': 1200}}
@@ -61,14 +61,14 @@ def single_tracking_task():
         store_state[:, i] = curr_state
         store_control[:, i] = env.get_twist()
         vel_cmd = controller.solve(curr_state, t)
-        vel_cmd = np.array([vel_cmd[0], vel_cmd[1], vel_cmd[5]])
+        vel_cmd = np.array([vel_cmd[0], vel_cmd[1], vel_cmd[-1]])
         store_solve_time[i] = controller.get_solve_time()
         pos = curr_state[:3]
         quat = curr_state[3:]
         rpy = p.getEulerFromQuaternion(quat)
         print("rpy: ", rpy)
         t += dt
-        twist = np.array([vel_cmd[0], 0, vel_cmd[1]])
+        twist = np.array([vel_cmd[0], 0, vel_cmd[2]])
         env.step(env.twist_to_control(twist))
 
     store_state[:, -1] = env.get_state()
