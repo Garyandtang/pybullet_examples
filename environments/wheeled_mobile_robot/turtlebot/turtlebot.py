@@ -53,7 +53,7 @@ class Turtlebot(WheeledMobileRobot):
         p.resetJointState(self.robot, 0, 0, 0, physicsClientId=self.PYB_CLIENT)
         p.resetJointState(self.robot, 1, 0, 0, physicsClientId=self.PYB_CLIENT)
 
-        return self.get_state(), {}
+        # return self.get_state(), {}
 
     def calc_twist(self, action):
         # action: [v_l, v_r] in m/s left and right wheel velocity

@@ -56,6 +56,11 @@ class WheeledMobileRobot(gym.Env, ABC):
         self.state = np.array([pos[0], pos[1], euler[2]])
         return self.state
 
+    def get_full_state(self):
+        pos, quat = p.getBasePositionAndOrientation(self.robot, physicsClientId=self.PYB_CLIENT)
+        # rpy = p.getEulerFromQuaternion(quat)
+        return np.array(pos + quat)
+
     def get_twist(self):
         # [v, w]
         vel = p.getBaseVelocity(self.robot, physicsClientId=self.PYB_CLIENT)

@@ -28,8 +28,8 @@ class SE3MPC:
         self.ref_state, self.ref_control, self.dt = traj_generator.get_traj()
         self.nTraj = self.ref_state.shape[1]
 
-    def setup_solver(self, Q=50, R=1, nPred=4):
-        self.Q = Q * np.diag(np.ones(self.nTwist))
+    def setup_solver(self, Q=500, R=1, nPred=4):
+        self.Q = Q * np.diag(np.array([1, 1, 1, 1, 1, 1]))
         self.R = R * np.diag(np.ones(self.nTwist))
         self.nPred = nPred
 
@@ -81,7 +81,7 @@ class SE3MPC:
         last_SE3 = SE3(pos[:, -1], quat[:, -1])
         last_ref_SE3 = SE3(self.ref_state[:3, -1], self.ref_state[3:, -1])
         last_SE3_diff = last_SE3 - last_ref_SE3
-        cost += cs.mtimes([last_SE3_diff.vector().T, Q, last_SE3_diff.vector()])
+        cost += cs.mtimes([last_SE3_diff.vector().T, 10*Q, last_SE3_diff.vector()])
 
         opti.minimize(cost)
 
@@ -91,10 +91,11 @@ class SE3MPC:
             opti.subject_to(twist[i, :] <= self.twist_max[i])
 
         # solve
-        opts_setting = {'ipopt.max_iter': 1000, 'ipopt.print_level': 0, 'print_time': 0, 'ipopt.acceptable_tol': 1e-8,
-                        'ipopt.acceptable_obj_change_tol': 1e-6}
+        # opts_setting = {'ipopt.max_iter': 1000, 'ipopt.print_level': 0, 'print_time': 0, 'ipopt.acceptable_tol': 1e-8,
+        #                 'ipopt.acceptable_obj_change_tol': 1e-6}
 
-        opti.solver("ipopt", opts_setting)
+        # opti.solver("ipopt", opts_setting)
+        opti.solver("ipopt")
         sol = opti.solve()
         self.solve_time = time.time() - start_time
         print("solve time: ", self.solve_time)
