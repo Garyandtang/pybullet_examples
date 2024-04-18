@@ -29,7 +29,7 @@ def single_tracking_task():
     #                          'dt': 0.02}}
     traj_config = {'type': TrajType.POSE_REGULATION,
               'param': {'end_pos': np.array([1, 1, 0]),
-                        'end_euler': np.array([0, 0, 0]),
+                        'end_euler': np.array([0, 0, np.pi / 2]),
                         'dt': 0.02,
                         'nTraj': 1200}}
     traj_gen = SE3TrajGenerator(traj_config)
@@ -61,6 +61,7 @@ def single_tracking_task():
         store_state[:, i] = curr_state
         store_control[:, i] = env.get_twist()
         vel_cmd = controller.solve(curr_state, t)
+        print("vel_cmd: ", vel_cmd)
         vel_cmd = np.array([vel_cmd[0], vel_cmd[1], vel_cmd[-1]])
         store_solve_time[i] = controller.get_solve_time()
         pos = curr_state[:3]

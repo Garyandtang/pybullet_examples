@@ -29,8 +29,8 @@ class SE3MPC:
         self.ref_state, self.ref_control, self.dt = traj_generator.get_traj()
         self.nTraj = self.ref_state.shape[1]
 
-    def setup_solver(self, Q=100, R=1, nPred=7):
-        self.Q = Q * np.diag(np.array([1, 1, 1, 1, 1, 1]))
+    def setup_solver(self, Q=100, R=1, nPred=10):
+        self.Q = Q * np.diag(np.array([14, 14, 1, 1, 1, 1]))
         self.R = R * np.diag(np.ones(self.nTwist))
         # self.R = R * np.diag(np.array([1,0,0,0,0,1]))
         self.nPred = nPred
@@ -64,9 +64,10 @@ class SE3MPC:
         for i in range(self.nPred - 1):
             curr_SE3 = SE3(pos[:, i], quat[:, i])
             next_SE3 = SE3(pos[:, i + 1], quat[:, i + 1])
-            curr_se3 = SE3Tangent(twist[:, i]*dt)
+            # curr_se3 = SE3Tangent(twist[:, i]*dt)
+            temp = cs.vertcat(twist[0, i], 0, 0, 0, 0, twist[1, i])
             # temp = np.array([twist[0, i], 0, 0, 0, 0, twist[1, i]])
-            # curr_se3 = SE3Tangent(temp * dt)
+            curr_se3 = SE3Tangent(temp * dt)
             forward_SE3 = curr_SE3 * curr_se3.exp()
             opti.subject_to(forward_SE3.pos == next_SE3.pos)
             opti.subject_to(forward_SE3.xyzw == next_SE3.xyzw)
@@ -79,7 +80,7 @@ class SE3MPC:
             ref_SE3 = SE3(self.ref_state[:3, index], self.ref_state[3:, index])
             SE3_diff = curr_SE3 - ref_SE3  # Log(SE3_ref^-1 * SE3), vector space
             cost += cs.mtimes([SE3_diff.vector().T, Q, SE3_diff.vector()])
-            twist_d = np.zeros(6)
+            twist_d = np.zeros(self.nTwist)
             cost += cs.mtimes([(twist[:, i] - twist_d).T, R, (twist[:, i] - twist_d)])
 
         last_SE3 = SE3(pos[:, -1], quat[:, -1])
@@ -89,10 +90,10 @@ class SE3MPC:
 
         opti.minimize(cost)
 
-        # control bound
-        for i in range(self.nTwist):
-            opti.subject_to(twist[i, :] >= self.twist_min[i])
-            opti.subject_to(twist[i, :] <= self.twist_max[i])
+        # # control bound
+        # for i in range(self.nTwist):
+        #     opti.subject_to(twist[i, :] >= self.twist_min[i])
+        #     opti.subject_to(twist[i, :] <= self.twist_max[i])
 
         # solve
         # opts_setting = {'ipopt.max_iter': 1000, 'ipopt.print_level': 0, 'print_time': 0, 'ipopt.acceptable_tol': 1e-8,
@@ -100,7 +101,11 @@ class SE3MPC:
 
         # opti.solver("ipopt", opts_setting)
         opti.solver("ipopt")
-        sol = opti.solve()
+        try:
+            sol = opti.solve()
+        except:
+            print("Can't solve the problem!")
+
         self.solve_time = time.time() - start_time
         print("solve time: ", self.solve_time)
         print("freq: ", 1./self.solve_time)
