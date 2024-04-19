@@ -29,7 +29,7 @@ class SE3MPC:
         self.ref_state, self.ref_control, self.dt = traj_generator.get_traj()
         self.nTraj = self.ref_state.shape[1]
 
-    def setup_solver(self, Q=100, R=1, nPred=10):
+    def setup_solver(self, Q=1000, R=1, nPred=10):
         self.Q = Q * np.diag(np.array([14, 14, 1, 1, 1, 1]))
         self.R = R * np.diag(np.ones(self.nTwist))
         # self.R = R * np.diag(np.array([1,0,0,0,0,1]))
@@ -86,15 +86,23 @@ class SE3MPC:
         last_SE3 = SE3(pos[:, -1], quat[:, -1])
         last_ref_SE3 = SE3(self.ref_state[:3, -1], self.ref_state[3:, -1])
         last_SE3_diff = last_SE3 - last_ref_SE3
-        cost += cs.mtimes([last_SE3_diff.vector().T, 10*Q, last_SE3_diff.vector()])
+        cost += cs.mtimes([last_SE3_diff.vector().T, 100*Q, last_SE3_diff.vector()])
 
         opti.minimize(cost)
 
-        # # control bound
-        # for i in range(self.nTwist):
-        #     opti.subject_to(twist[i, :] >= self.twist_min[i])
-        #     opti.subject_to(twist[i, :] <= self.twist_max[i])
+        # control bound
+        for i in range(self.nTwist):
+            opti.subject_to(twist[i, :] >= self.twist_min[i])
+            opti.subject_to(twist[i, :] <= self.twist_max[i])
 
+        # initial guess
+        for i in range(self.nPred):
+            index = min(k + i, self.nTraj - 1)
+            opti.set_initial(pos[:, i], self.ref_state[:3, index])
+            opti.set_initial(quat[:, i], self.ref_state[3:, index])
+            if i < self.nPred - 1:
+                ref_twist = np.array([self.ref_control[0, index], self.ref_control[-1, index]])
+                opti.set_initial(twist[:, i], ref_twist)
         # solve
         # opts_setting = {'ipopt.max_iter': 1000, 'ipopt.print_level': 0, 'print_time': 0, 'ipopt.acceptable_tol': 1e-8,
         #                 'ipopt.acceptable_obj_change_tol': 1e-6}
