@@ -64,6 +64,11 @@ class WheeledMobileRobot(gym.Env, ABC):
     def get_twist(self):
         # [v, w]
         vel = p.getBaseVelocity(self.robot, physicsClientId=self.PYB_CLIENT)
+        # vel[0]: linear velocity, vel[1]: angular velocity
+        # linear velocity is the velocity of the center of mass from the world frame
+        # to get the velocity of the center of mass from the robot frame, v_b = R.T @ v_w
+        # where R is the rotation matrix from world to robot frame
+        # since v_w_x = sin(theta) v, v_w_y = cos(theta) v, an easier way is just sqrt(vx^2 + vy^2)
         self.twist = np.array([np.sqrt(vel[0][0] ** 2 + vel[0][1] ** 2), vel[1][2]])
         return self.twist
 
