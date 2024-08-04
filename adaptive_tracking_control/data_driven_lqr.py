@@ -31,8 +31,8 @@ class LTI:
 
 
     def system_init(self):
-        l = np.random.uniform(0.2, 0.3)
-        r = np.random.uniform(0.02, 0.04)
+        l = np.random.uniform(0.1, 0.5)
+        r = np.random.uniform(0.01, 0.1)
         # l = 0.23
         # r = 0.036
         self.dt = 0.02

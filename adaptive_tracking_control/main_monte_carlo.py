@@ -3,8 +3,8 @@ import os
 import time
 from matplotlib import ticker
 def MonteCarlo():
-    totalSim = 50
-    iteration = 5
+    totalSim = 15
+    iteration = 4
     y_max = 0.8
     y_min = -0.3
     K0_container = np.zeros((totalSim, iteration))

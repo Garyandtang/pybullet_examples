@@ -207,7 +207,7 @@ def simulation(lti, learning=False):
         u = K @ x + k
         if learning:
             # u = u + np.sin(np.random.normal(0, 1, (m,)) * 0.1) + np.cos(np.random.normal(0, 1, (m,)) * 0.1)
-            u = u + np.random.normal(0, 0.1, (m,))
+            u = u + 0.5 * np.random.normal(0, 1, (m,))
             # u = u + np.random.uniform(-0.2, 0.2, (m,))
         # wheel_velocity_container[:, i] = robot.get_wheel_vel()
         control_container[:, i] = u
