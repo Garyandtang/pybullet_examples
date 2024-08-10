@@ -25,8 +25,8 @@ class training_data:
         self.B = np.zeros((n, m))
 
 class LTI:
-    def __init__(self):
-        self.system_init()
+    def __init__(self, fixed_param=False):
+        self.system_init(fixed_param)
         self.controller_init()
         self.get_optimal_control()
 
@@ -41,11 +41,14 @@ class LTI:
         self.K_optimal = -ct.dlqr(self.A, optimal_B, self.Q, self.R)[0]
         self.B_optimal = optimal_B
 
-    def system_init(self):
-        l = np.random.uniform(0.2, 0.28)
-        r = np.random.uniform(0.03, 0.04)
-        # l = 0.23
-        # r = 0.036
+    def system_init(self, fixed_param=False):
+        if fixed_param:
+            l = 0.23
+            r = 0.036
+        else:
+            l = np.random.uniform(0.2, 0.28)
+            r = np.random.uniform(0.03, 0.05)
+
         self.dt = 0.02
         self.v = 0.02
         self.w = 0.2

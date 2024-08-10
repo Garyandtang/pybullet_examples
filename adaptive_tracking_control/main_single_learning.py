@@ -3,8 +3,8 @@ import os
 import time
 from matplotlib import ticker
 def MonteCarlo():
-    totalSim = 5
-    iteration = 3
+    totalSim = 1
+    iteration = 10
     y_max = 0.8
     y_min = -0.3
     K0_container = np.zeros((totalSim, iteration))
@@ -17,7 +17,7 @@ def MonteCarlo():
     k1_container = np.zeros((totalSim, iteration))
     r_container = np.zeros((totalSim, iteration+1))
     l_container = np.zeros((totalSim, iteration+1))
-    nTraj = 300
+    nTraj = 1200
     x_trained_container = np.zeros((totalSim, nTraj-1))
     y_trained_container = np.zeros((totalSim, nTraj-1))
 
@@ -28,7 +28,7 @@ def MonteCarlo():
     i = 0
     avg_learning_time = 0
     while i < totalSim:
-        lti = LTI()
+        lti = LTI(fixed_param=True)
         x_init_container[i, :], y_init_container[i, :], _, _ = evaluation(lti, nTraj)
         r_container[i, 0], l_container[i, 0] = calculate_r_l(lti.B, lti.dt)
         optimal_K = lti.K_optimal
@@ -92,7 +92,7 @@ def MonteCarlo():
     plt.savefig(os.path.join(data_path, name))
     plt.show()
 
-    # plot r
+    # plot r and l
     x = np.arange(0, iteration+1, 1)
     plt.figure()
     # show grid
@@ -100,24 +100,32 @@ def MonteCarlo():
     plt.xticks(fontsize=font_size - 2)
     plt.yticks(fontsize=font_size - 2)
     plt.plot(x, r_container.T, linewidth=line_width)
+    plt.plot(x, l_container.T, linewidth=line_width)
     plt.xlabel("iteration", fontsize=font_size)
     plt.ylabel("$r~(m)$", fontsize=font_size)
-    name = "trained_r.jpg"
+    name = "trained_r_l.jpg"
     plt.savefig(os.path.join(data_path, name))
     plt.show()
 
-    # plot l
+    # plot K0, K1, K2, K3, K4, K5
+    x = np.arange(0, iteration, 1)
     plt.figure()
+    # show grid
     plt.grid(True)
     plt.xticks(fontsize=font_size - 2)
     plt.yticks(fontsize=font_size - 2)
-
-    plt.plot(x, l_container.T, linewidth=line_width)
+    plt.plot(x, K0_container.T, linewidth=line_width)
+    plt.plot(x, K1_container.T, linewidth=line_width)
+    plt.plot(x, K2_container.T, linewidth=line_width)
+    plt.plot(x, K3_container.T, linewidth=line_width)
+    plt.plot(x, K4_container.T, linewidth=line_width)
+    plt.plot(x, K5_container.T, linewidth=line_width)
     plt.xlabel("iteration", fontsize=font_size)
-    plt.ylabel("$l~(m)$", fontsize=font_size)
-    name = "trained_l.jpg"
+    plt.ylabel("$K$", fontsize=font_size)
+    name = "trained_K.jpg"
     plt.savefig(os.path.join(data_path, name))
     plt.show()
+
 
     # calculate the mean and std of last r
     r_mean = np.mean(r_container[:, -1])
@@ -132,13 +140,13 @@ def MonteCarlo():
     print("l_std: ", l_std)
 
     print("failed to learn: ", totalFail)
-    # save data
-    np.save('data/r_container.npy', r_container)
-    np.save('data/l_container.npy', l_container)
-    np.save('data/x_init_container.npy', x_init_container)
-    np.save('data/y_init_container.npy', y_init_container)
-    np.save('data/x_trained_container.npy', x_trained_container)
-    np.save('data/y_trained_container.npy', y_trained_container)
+    # # save data
+    # np.save('data/r_container.npy', r_container)
+    # np.save('data/l_container.npy', l_container)
+    # np.save('data/x_init_container.npy', x_init_container)
+    # np.save('data/y_init_container.npy', y_init_container)
+    # np.save('data/x_trained_container.npy', x_trained_container)
+    # np.save('data/y_trained_container.npy', y_trained_container)
 
 
 
