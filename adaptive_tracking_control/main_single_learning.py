@@ -4,20 +4,20 @@ import time
 from matplotlib import ticker
 def MonteCarlo():
     totalSim = 1
-    iteration = 10
+    iteration = 5
     y_max = 0.8
     y_min = -0.3
-    K0_container = np.zeros((totalSim, iteration))
-    K1_container = np.zeros((totalSim, iteration))
-    K2_container = np.zeros((totalSim, iteration))
-    K3_container = np.zeros((totalSim, iteration))
-    K4_container = np.zeros((totalSim, iteration))
-    K5_container = np.zeros((totalSim, iteration))
-    k0_container = np.zeros((totalSim, iteration))
-    k1_container = np.zeros((totalSim, iteration))
+    K0_container = np.zeros((totalSim, iteration+1))
+    K1_container = np.zeros((totalSim, iteration+1))
+    K2_container = np.zeros((totalSim, iteration+1))
+    K3_container = np.zeros((totalSim, iteration+1))
+    K4_container = np.zeros((totalSim, iteration+1))
+    K5_container = np.zeros((totalSim, iteration+1))
+    k0_container = np.zeros((totalSim, iteration+1))
+    k1_container = np.zeros((totalSim, iteration+1))
     r_container = np.zeros((totalSim, iteration+1))
     l_container = np.zeros((totalSim, iteration+1))
-    nTraj = 1200
+    nTraj = 5000
     x_trained_container = np.zeros((totalSim, nTraj-1))
     y_trained_container = np.zeros((totalSim, nTraj-1))
 
@@ -31,8 +31,18 @@ def MonteCarlo():
         lti = LTI(fixed_param=True)
         x_init_container[i, :], y_init_container[i, :], _, _ = evaluation(lti, nTraj)
         r_container[i, 0], l_container[i, 0] = calculate_r_l(lti.B, lti.dt)
-        optimal_K = lti.K_optimal
-        optimal_k = lti.k_optimal
+        init_K = lti.K_ini
+        init_k = lti.k_ini
+        K0_container[i, 0] = init_K[0, 0]
+        K1_container[i, 0] = init_K[0, 1]
+        K2_container[i, 0] = init_K[0, 2]
+        K3_container[i, 0] = init_K[1, 0]
+        K4_container[i, 0] = init_K[1, 1]
+        K5_container[i, 0] = init_K[1, 2]
+        k0_container[i, 0] = init_k[0]
+        k1_container[i, 0] = init_k[1]
+        optimal_K = lti.K_ground_truth
+        optimal_k = lti.k_ground_truth
         for j in range(iteration):
             start_time = time.time()
             K, k, B, successful = learning(lti)
@@ -45,14 +55,14 @@ def MonteCarlo():
                 i = i - 1
                 break
             r, l = calculate_r_l(B, lti.dt)
-            K0_container[i, j] = K[0, 0] - optimal_K[0, 0]
-            K1_container[i, j] = K[0, 1] - optimal_K[0, 1]
-            K2_container[i, j] = K[0, 2] - optimal_K[0, 2]
-            K3_container[i, j] = K[1, 0] - optimal_K[1, 0]
-            K4_container[i, j] = K[1, 1] - optimal_K[1, 1]
-            K5_container[i, j] = K[1, 2] - optimal_K[1, 2]
-            k0_container[i, j] = k[0] - optimal_k[0]
-            k1_container[i, j] = k[1] - optimal_k[1]
+            K0_container[i, j+1] = K[0, 0] #- optimal_K[0, 0]
+            K1_container[i, j+1] = K[0, 1]# - optimal_K[0, 1]
+            K2_container[i, j+1] = K[0, 2]# - optimal_K[0, 2]
+            K3_container[i, j+1] = K[1, 0] #- optimal_K[1, 0]
+            K4_container[i, j+1] = K[1, 1] #- optimal_K[1, 1]
+            K5_container[i, j+1] = K[1, 2] #- optimal_K[1, 2]
+            k0_container[i, j+1] = k[0] #- optimal_k[0]
+            k1_container[i, j+1] = k[1]# - optimal_k[1]
             r_container[i, j+1] = r
             l_container[i, j+1] = l
 
@@ -64,7 +74,7 @@ def MonteCarlo():
     line_width = 2
     # dirpath
     dirpath = os.getcwd()
-    data_path = os.path.join(dirpath, "data")
+    data_path = os.path.join(dirpath, "data", "single_learning")
     # plot init x and y in the same figure
     plt.figure()
     plt.grid(True)
@@ -101,27 +111,30 @@ def MonteCarlo():
     plt.yticks(fontsize=font_size - 2)
     plt.plot(x, r_container.T, linewidth=line_width)
     plt.plot(x, l_container.T, linewidth=line_width)
-    plt.xlabel("iteration", fontsize=font_size)
-    plt.ylabel("$r~(m)$", fontsize=font_size)
+    plt.xlabel("iteration ($i$)", fontsize=font_size)
+    plt.ylabel("length (m)$", fontsize=font_size)
+    plt.legend(['$r$', '$l$'], fontsize=font_size - 2)
+    plt.title("Convergence process of $r$ and $l$", fontsize=font_size)
     name = "trained_r_l.jpg"
     plt.savefig(os.path.join(data_path, name))
     plt.show()
 
     # plot K0, K1, K2, K3, K4, K5
-    x = np.arange(0, iteration, 1)
+    x = np.arange(0, iteration+1, 1)
     plt.figure()
     # show grid
     plt.grid(True)
     plt.xticks(fontsize=font_size - 2)
     plt.yticks(fontsize=font_size - 2)
-    plt.plot(x, K0_container.T, linewidth=line_width)
-    plt.plot(x, K1_container.T, linewidth=line_width)
-    plt.plot(x, K2_container.T, linewidth=line_width)
-    plt.plot(x, K3_container.T, linewidth=line_width)
-    plt.plot(x, K4_container.T, linewidth=line_width)
-    plt.plot(x, K5_container.T, linewidth=line_width)
-    plt.xlabel("iteration", fontsize=font_size)
-    plt.ylabel("$K$", fontsize=font_size)
+    plt.plot(x, K0_container[0, :], linewidth=line_width)
+    plt.plot(x, K1_container[0, :], linewidth=line_width)
+    plt.plot(x, K2_container[0, :], linewidth=line_width)
+    plt.plot(x, K3_container[0, :], linewidth=line_width)
+    plt.plot(x, K4_container[0, :], linewidth=line_width)
+    plt.plot(x, K5_container[0, :], linewidth=line_width)
+    plt.legend(['$K[0, 0]$', '$K[0, 1]$', '$K[0, 2]$', '$K[1, 0]$', '$K[1, 1]$', '$K[1, 2]$'], fontsize=font_size - 2, )
+    plt.xlabel("iteration ($i$)", fontsize=font_size)
+    plt.title("Convergence process of $K$", fontsize=font_size)
     name = "trained_K.jpg"
     plt.savefig(os.path.join(data_path, name))
     plt.show()

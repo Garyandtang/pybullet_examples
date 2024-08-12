@@ -28,23 +28,24 @@ class LTI:
     def __init__(self, fixed_param=False):
         self.system_init(fixed_param)
         self.controller_init()
-        self.get_optimal_control()
+        self.get_ground_truth_control()
 
-    def get_optimal_control(self):
-        optimal_l = 0.23
-        optimal_r = 0.036
-        optimal_B = self.dt * np.array([[optimal_r / 2, optimal_r / 2],
+    def get_ground_truth_control(self):
+        ground_truth_l = 0.23
+        ground_truth_r = 0.036
+        ground_truth_B = self.dt * np.array([[ground_truth_r / 2, ground_truth_r / 2],
                               [0, 0],
-                              [-optimal_r / optimal_l, optimal_r / optimal_l]])
+                              [-ground_truth_r / ground_truth_l, ground_truth_r / ground_truth_l]])
 
-        self.k_optimal = -np.linalg.pinv(optimal_B) @ self.c
-        self.K_optimal = -ct.dlqr(self.A, optimal_B, self.Q, self.R)[0]
-        self.B_optimal = optimal_B
+        self.k_ground_truth = -np.linalg.pinv(ground_truth_B) @ self.c
+        self.K_ground_truth = -ct.dlqr(self.A, ground_truth_B, self.Q, self.R)[0]
+        self.B_ground_truth = ground_truth_B
+
 
     def system_init(self, fixed_param=False):
         if fixed_param:
-            l = 0.23
-            r = 0.036
+            l = 0.15
+            r = 0.08
         else:
             l = np.random.uniform(0.2, 0.28)
             r = np.random.uniform(0.03, 0.05)
@@ -60,6 +61,9 @@ class LTI:
                                      [-r / l, r / l]])
         self.c = -self.dt * self.twist
 
+        self.init_A = self.A
+        self.init_B = self.B
+        self.init_c = self.c
 
         self.Q = 200 * np.eye(3)
         self.R = 10 * np.eye(2)
@@ -210,7 +214,7 @@ def simulation(lti, learning=False):
         u = K @ x + k
         if learning:
             # u = u + np.sin(np.random.normal(0, 1, (m,)) * 0.1) + np.cos(np.random.normal(0, 1, (m,)) * 0.1)
-            u = u + 0.5 * np.random.normal(0, 1, (m,))
+            u = u + 0.5 * np.random.normal(0, 0.1, (m,))
             # u = u + np.random.uniform(-0.2, 0.2, (m,))
         # wheel_velocity_container[:, i] = robot.get_wheel_vel()
         control_container[:, i] = u
@@ -303,7 +307,7 @@ def learning(lti):
     data_container = simulation(lti, True)
     K_prev = np.zeros((m, n))
     k_prev = np.zeros((m,))
-    while np.linalg.norm(data_container.K - K_prev) > 0.02 or np.linalg.norm(data_container.k - k_prev) > 0.02:
+    while np.linalg.norm(data_container.K - K_prev) > 0.001:
         # if iteration > 0:
         #     break
         K_prev = data_container.K
@@ -324,12 +328,12 @@ def learning(lti):
         k = -np.linalg.pinv(B) @ lti.c
         data_container.K = K
         data_container.k = k
-        # print("current K: ", K)
-        # print("current k: ", k)
-        # print("optimal K: ", lti.optimal_K)
-        # print("error K: ", data_container.K - K_prev)
-        # print("error k: ", data_container.k - k_prev)
-        # print("====================================")
+        print("current K: ", K)
+        print("current k: ", k)
+        print("optimal K: ", lti.K_ground_truth)
+        print("error K: ", data_container.K - K_prev)
+        print("error k: ", data_container.k - k_prev)
+        print("====================================")
         iteration += 1
         if iteration > 100:
             return K, k, B, False
