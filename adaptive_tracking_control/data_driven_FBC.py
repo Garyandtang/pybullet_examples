@@ -45,9 +45,9 @@ class LTI:
     def system_init(self, fixed_param=False):
         if fixed_param:
             l = 0.15
-            r = 0.08
+            r = 0.05
         else:
-            l = np.random.uniform(0.2, 0.3)
+            l = np.random.uniform(0.15, 0.3)
             r = np.random.uniform(0.03, 0.05)
 
         self.dt = 0.02
@@ -156,7 +156,7 @@ def evaluation(lti, nTraj=500, learning=False):
     return state_container[0, :], state_container[1, :], error_container, control_container
 
 
-def simulation(lti, learning=False):
+def simulation(lti, learning=False, variance=0.1):
     K = lti.K0
     k = lti.k0
     print("init K: ", lti.K_ini)
@@ -202,8 +202,8 @@ def simulation(lti, learning=False):
         u = K @ x + k
         if learning:
             # u = u + np.sin(np.random.normal(0, 1, (m,)) * 0.1) + np.cos(np.random.normal(0, 1, (m,)) * 0.1)
-            u = u + 0.5 * np.random.normal(0, 1, (m,))
-            # u = u + 0.5 * np.random.normal(0, 0.1, (m,))
+            # u = u + 0.5 * np.random.normal(0, 1, (m,))
+            u = u + np.random.normal(0, variance, (m,))
             # u = u + np.random.uniform(-0.2, 0.2, (m,))
         # wheel_velocity_container[:, i] = robot.get_wheel_vel()
         control_container[:, i] = u
@@ -285,13 +285,13 @@ def calculate_r_l(B, dt):
     l = (r * dt) / (B[2, 1] - B[2, 0]) * 2
     return r, l
 
-def learning(lti):
+def learning(lti, variance=0.1):
     # lti = LTI()
     n = lti.A.shape[0]
     m = lti.B.shape[1]
     iteration = 0
     recovered_B_vector = np.zeros(0, dtype=np.ndarray)
-    data_container = simulation(lti, True)
+    data_container = simulation(lti, True, variance)
     K_prev = np.zeros((m, n))
     k_prev = np.zeros((m,))
     while np.linalg.norm(data_container.K - K_prev) > 0.01 or np.linalg.norm(data_container.k - k_prev) > 0.01:

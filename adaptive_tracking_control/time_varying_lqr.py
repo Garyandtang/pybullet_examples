@@ -170,7 +170,7 @@ if __name__ == '__main__':
     plt.plot(init_state_container[0, :], init_state_container[1, :])
     # plt.plot(trained_state_container[0, :], trained_state_container[1, :])
     plt.plot(ref_state_container[0, :], ref_state_container[1, :])
-    plt.legend(['trajectory with initial MPC', 'reference trajectory'], fontsize=font_size - 2)
+    plt.legend(['trajectory by GMPC', 'reference trajectory'], fontsize=font_size - 2)
     plt.xlabel("$x~(m)$", fontsize=font_size)
     plt.ylabel("$y~(m)$", fontsize=font_size)
     name = "init_time_vary_trajectory.jpg"
@@ -185,7 +185,7 @@ if __name__ == '__main__':
     plt.yticks(fontsize=font_size - 4)
     plt.plot(trained_state_container[0, :], trained_state_container[1, :])
     plt.plot(ref_state_container[0, :], ref_state_container[1, :])
-    plt.legend(['trajectory with learned MPC', 'reference trajectory'], fontsize=font_size - 2)
+    plt.legend(['trajectory by Ours', 'reference trajectory'], fontsize=font_size - 2)
     plt.xlabel("$x~(m)$", fontsize=font_size)
     plt.ylabel("$y~(m)$", fontsize=font_size)
     name = "learned_time_vary_trajectory.jpg"
@@ -200,7 +200,7 @@ if __name__ == '__main__':
     plt.yticks(fontsize=font_size - 4)
     plt.plot(fbc_state_container[0, :], fbc_state_container[1, :])
     plt.plot(ref_state_container[0, :], ref_state_container[1, :])
-    plt.legend(['trajectory with FBC', 'reference trajectory'], fontsize=font_size - 2)
+    plt.legend(['trajectory by FBC', 'reference trajectory'], fontsize=font_size - 2)
     plt.xlabel("$x~(m)$", fontsize=font_size)
     plt.ylabel("$y~(m)$", fontsize=font_size)
     name = "fbc_time_vary_trajectory.jpg"
@@ -218,7 +218,7 @@ if __name__ == '__main__':
     plt.plot(init_vel_container[0, :])
     # plt.plot(trained_vel_container[0, :])
     plt.plot(ref_vel[0, :])
-    plt.legend(['$v$ of initial MPC', 'reference $v$'], fontsize=font_size - 2)
+    plt.legend(['$v$ of GMPC', 'reference $v$'], fontsize=font_size - 2)
     plt.xlabel("k", fontsize=font_size)
     plt.ylabel("$v~(m/s)$", fontsize=font_size)
     name = "init_time_vary_v.jpg"
@@ -234,7 +234,7 @@ if __name__ == '__main__':
     # plt.plot(init_vel_container[0, :])
     plt.plot(trained_vel_container[0, :])
     plt.plot(ref_vel[0, :])
-    plt.legend(['$v$ of learned MPC', 'reference $v$'], fontsize=font_size - 2)
+    plt.legend(['$v$ of Ours', 'reference $v$'], fontsize=font_size - 2)
     plt.xlabel("k", fontsize=font_size)
     plt.ylabel("$v~(m/s)$", fontsize=font_size)
     name = "learned_time_vary_v.jpg"
@@ -269,7 +269,7 @@ if __name__ == '__main__':
     plt.plot(init_vel_container[1, :])
     # plt.plot(trained_vel_container[1, :])
     plt.plot(ref_vel[1, :])
-    plt.legend(['$w$ of initial MPC', 'reference $w$'], fontsize=font_size - 2)
+    plt.legend(['$w$ of GMPC', 'reference $w$'], fontsize=font_size - 2)
     plt.xlabel("k", fontsize=font_size)
     plt.ylabel("$w~(rad/s)$", fontsize=font_size)
     name = "init_time_vary_w.jpg"
@@ -285,7 +285,7 @@ if __name__ == '__main__':
     # plt.plot(init_vel_container[1, :])
     plt.plot(trained_vel_container[1, :])
     plt.plot(ref_vel[1, :])
-    plt.legend(['$w$ of learned MPC', 'reference $w$'], fontsize=font_size - 2)
+    plt.legend(['$w$ of Ours', 'reference $w$'], fontsize=font_size - 2)
     plt.xlabel("k", fontsize=font_size)
     plt.ylabel("$w~(rad/s)$", fontsize=font_size)
     name = "learned_time_vary_w.jpg"

@@ -65,7 +65,7 @@ def MonteCarlo():
         optimal_k = lti.k_ground_truth
         for j in range(iteration):
             start_time = time.time()
-            K, k, B, successful = learning(lti)
+            K, k, B, successful = learning(lti, 2)
             learning_time = time.time() - start_time
             avg_learning_time += learning_time
             print("learning time: ", learning_time)
