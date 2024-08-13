@@ -66,7 +66,7 @@ class LTI:
         self.init_c = self.c
 
         self.Q = 200 * np.eye(3)
-        self.R = 10 * np.eye(2)
+        self.R = 1 * np.eye(2)
 
 
     def controller_init(self):

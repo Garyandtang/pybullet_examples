@@ -96,7 +96,7 @@ def time_varying_simulation(r, l):
                    'param': {'start_state': np.array([0, 0, 0]),
                              'dt': 0.02,
                              'scale': 2,
-                             'nTraj': 500}}
+                             'nTraj': 2500}}
 
     lti = LTI()
     lqr = time_varying_LQR(traj_config, lti, r, l)
@@ -118,16 +118,17 @@ def time_varying_simulation(r, l):
             SE2(curr_state[0], curr_state[1], curr_state[2])).log().coeffs()
         x_container[:, i] = x
     return state_container, vel_container, lqr.ref_state, x_container, lqr.ref_control
-
 def time_varying_simulation_FBC(r, l):
     traj_config = {'type': TrajType.EIGHT,
                    'param': {'start_state': np.array([0, 0, 0]),
                              'dt': 0.02,
                              'scale': 2,
-                             'nTraj': 200}}
+                             'nTraj': 2500}}
 
     lti = LTI()
     lqr = time_varying_LQR(traj_config, lti, r, l)
+    fbc = FBLinearizationController()
+
     state_container = np.zeros((3, lqr.nTraj - 1))
     x_container = np.zeros((3, lqr.nTraj - 1))
     ref_state_container = lqr.ref_state
@@ -137,7 +138,9 @@ def time_varying_simulation_FBC(r, l):
     for i in range(lqr.nTraj - 1):
         curr_state = robot.get_state()
         state_container[:, i] = curr_state
-        u = lqr.mpc_step(curr_state, i)
+        # u = lqr.mpc_step(curr_state, i)
+        u = fbc.feedback_control(curr_state, lqr.ref_state[:, i], lqr.ref_control[:, i])
+        u = fbc.vel_cmd_to_wheel_vel(u, r, l)
         vel = robot.control_to_twist(u)
         vel = np.array([vel[0], vel[2]])
         vel_container[:, i] = vel
@@ -148,8 +151,10 @@ def time_varying_simulation_FBC(r, l):
     return state_container, vel_container, lqr.ref_state, x_container, lqr.ref_control
 
 if __name__ == '__main__':
+
     init_state_container, init_vel_container, ref_state_container, init_x_container, ref_vel = time_varying_simulation(0.03, 0.3)
     trained_state_container, trained_vel_container, trained_ref_state_container, x_container, ref_vel = time_varying_simulation(0.036, 0.23)
+    fbc_state_container, fbc_vel_container, _, _, _ = time_varying_simulation_FBC(0.03, 0.3)
     # get curr dir
     curr_dir = os.getcwd()
     save_dir = os.path.join(curr_dir, 'data', 'time_varying_tracking')
@@ -165,7 +170,7 @@ if __name__ == '__main__':
     plt.plot(init_state_container[0, :], init_state_container[1, :])
     # plt.plot(trained_state_container[0, :], trained_state_container[1, :])
     plt.plot(ref_state_container[0, :], ref_state_container[1, :])
-    plt.legend(['trajectory with initial model', 'reference trajectory'], fontsize=font_size - 2)
+    plt.legend(['trajectory with initial MPC', 'reference trajectory'], fontsize=font_size - 2)
     plt.xlabel("$x~(m)$", fontsize=font_size)
     plt.ylabel("$y~(m)$", fontsize=font_size)
     name = "init_time_vary_trajectory.jpg"
@@ -180,13 +185,29 @@ if __name__ == '__main__':
     plt.yticks(fontsize=font_size - 4)
     plt.plot(trained_state_container[0, :], trained_state_container[1, :])
     plt.plot(ref_state_container[0, :], ref_state_container[1, :])
-    plt.legend(['trajectory with learned model', 'reference trajectory'], fontsize=font_size - 2)
+    plt.legend(['trajectory with learned MPC', 'reference trajectory'], fontsize=font_size - 2)
     plt.xlabel("$x~(m)$", fontsize=font_size)
     plt.ylabel("$y~(m)$", fontsize=font_size)
     name = "learned_time_vary_trajectory.jpg"
     save_path = os.path.join(save_dir, name)
     plt.savefig(save_path)
     plt.show()
+
+    # fbc model
+    plt.figure()
+    plt.grid(True)
+    plt.xticks(fontsize=font_size - 4)
+    plt.yticks(fontsize=font_size - 4)
+    plt.plot(fbc_state_container[0, :], fbc_state_container[1, :])
+    plt.plot(ref_state_container[0, :], ref_state_container[1, :])
+    plt.legend(['trajectory with FBC', 'reference trajectory'], fontsize=font_size - 2)
+    plt.xlabel("$x~(m)$", fontsize=font_size)
+    plt.ylabel("$y~(m)$", fontsize=font_size)
+    name = "fbc_time_vary_trajectory.jpg"
+    save_path = os.path.join(save_dir, name)
+    plt.savefig(save_path)
+    plt.show()
+
 
     # plot vel[0]
     # initial model
@@ -197,7 +218,7 @@ if __name__ == '__main__':
     plt.plot(init_vel_container[0, :])
     # plt.plot(trained_vel_container[0, :])
     plt.plot(ref_vel[0, :])
-    plt.legend(['$v$ with initial model', 'reference $v$'], fontsize=font_size - 2)
+    plt.legend(['$v$ of initial MPC', 'reference $v$'], fontsize=font_size - 2)
     plt.xlabel("k", fontsize=font_size)
     plt.ylabel("$v~(m/s)$", fontsize=font_size)
     name = "init_time_vary_v.jpg"
@@ -213,13 +234,30 @@ if __name__ == '__main__':
     # plt.plot(init_vel_container[0, :])
     plt.plot(trained_vel_container[0, :])
     plt.plot(ref_vel[0, :])
-    plt.legend(['$v$ with learned model', 'reference $v$'], fontsize=font_size - 2)
+    plt.legend(['$v$ of learned MPC', 'reference $v$'], fontsize=font_size - 2)
     plt.xlabel("k", fontsize=font_size)
     plt.ylabel("$v~(m/s)$", fontsize=font_size)
     name = "learned_time_vary_v.jpg"
     save_path = os.path.join(save_dir, name)
     plt.savefig(save_path)
     plt.show()
+
+    # fbc model
+    plt.figure()
+    plt.grid(True)
+    plt.xticks(fontsize=font_size - 4)
+    plt.yticks(fontsize=font_size - 4)
+    # plt.plot(init_vel_container[0, :])
+    plt.plot(fbc_vel_container[0, :])
+    plt.plot(ref_vel[0, :])
+    plt.legend(['$v$ of FBC', 'reference $v$'], fontsize=font_size - 2)
+    plt.xlabel("k", fontsize=font_size)
+    plt.ylabel("$v~(m/s)$", fontsize=font_size)
+    name = "fbc_time_vary_v.jpg"
+    save_path = os.path.join(save_dir, name)
+    plt.savefig(save_path)
+    plt.show()
+
 
 
     # plot vel[1]
@@ -231,7 +269,7 @@ if __name__ == '__main__':
     plt.plot(init_vel_container[1, :])
     # plt.plot(trained_vel_container[1, :])
     plt.plot(ref_vel[1, :])
-    plt.legend(['$w$ with initial model', 'reference $w$'], fontsize=font_size - 2)
+    plt.legend(['$w$ of initial MPC', 'reference $w$'], fontsize=font_size - 2)
     plt.xlabel("k", fontsize=font_size)
     plt.ylabel("$w~(rad/s)$", fontsize=font_size)
     name = "init_time_vary_w.jpg"
@@ -239,7 +277,7 @@ if __name__ == '__main__':
     plt.savefig(save_path)
     plt.show()
 
-    # initial model
+    # learned model
     plt.figure()
     plt.grid(True)
     plt.xticks(fontsize=font_size - 4)
@@ -247,10 +285,26 @@ if __name__ == '__main__':
     # plt.plot(init_vel_container[1, :])
     plt.plot(trained_vel_container[1, :])
     plt.plot(ref_vel[1, :])
-    plt.legend(['$w$ with learned model', 'reference $w$'], fontsize=font_size - 2)
+    plt.legend(['$w$ of learned MPC', 'reference $w$'], fontsize=font_size - 2)
     plt.xlabel("k", fontsize=font_size)
     plt.ylabel("$w~(rad/s)$", fontsize=font_size)
     name = "learned_time_vary_w.jpg"
+    save_path = os.path.join(save_dir, name)
+    plt.savefig(save_path)
+    plt.show()
+
+    # fbc model
+    plt.figure()
+    plt.grid(True)
+    plt.xticks(fontsize=font_size - 4)
+    plt.yticks(fontsize=font_size - 4)
+    # plt.plot(init_vel_container[1, :])
+    plt.plot(fbc_vel_container[1, :])
+    plt.plot(ref_vel[1, :])
+    plt.legend(['$w$ of FBC', 'reference $w$'], fontsize=font_size - 2)
+    plt.xlabel("k", fontsize=font_size)
+    plt.ylabel("$w~(rad/s)$", fontsize=font_size)
+    name = "fbc_time_vary_w.jpg"
     save_path = os.path.join(save_dir, name)
     plt.savefig(save_path)
     plt.show()
