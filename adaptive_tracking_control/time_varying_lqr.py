@@ -9,12 +9,11 @@ from utils.enum_class import TrajType, ControllerType, LiniearizationType
 from environments.wheeled_mobile_robot.turtlebot.turtlebot import Turtlebot
 from environments.numerical_simulator.WMR_simulator import WMRSimulator
 from data_driven_FBC import LTI, calculate_r_l
+from controller.feedback_linearization import FBLinearizationController
 import casadi as ca
 class time_varying_LQR:
     def __init__(self, traj_config, lti, r, l):
         self.system_init(traj_config, lti, r, l)
-        self.controller_init()
-        pass
 
     def system_init(self, traj_config, lti, r, l):
         self.Q = lti.Q
@@ -43,30 +42,6 @@ class time_varying_LQR:
         self.dt = dt
 
 
-    def controller_init(self):
-        self.K_list = []
-        self.k_list = []
-        # solve with backward
-        P = self.Q
-        for i in range(self.nTraj - 1, -1, -1):
-            A = self.A_list[i]
-            B = self.B_list[i]
-            Q = self.Q_list[i]
-            R = self.R_list[i]
-            vel_cmd = self.ref_control[:, i]
-            twist = np.array([vel_cmd[0], 0, vel_cmd[1]]) * self.dt
-
-            K = -ct.dlqr(A, B, Q, R)[0]
-            self.K_list.append(K)
-            k = np.linalg.pinv(B) @ twist
-            self.k_list.append(k)
-            P = Q + A.T @ P @ A - A.T @ P @ B @ np.linalg.inv(R + B.T @ P @ B) @ B.T @ P @ A
-
-    def step(self, curr_state, i):
-        ref_state = self.ref_state[:, i]
-        x = SE2(ref_state[0], ref_state[1], ref_state[2]).between(SE2(curr_state[0], curr_state[1], curr_state[2])).log().coeffs()
-        u = self.K_list[i] @ x + self.k_list[i]
-        return u
 
     def mpc_step(self, curr_state, k):
         ref_state = self.ref_state[:, k]
@@ -121,7 +96,35 @@ def time_varying_simulation(r, l):
                    'param': {'start_state': np.array([0, 0, 0]),
                              'dt': 0.02,
                              'scale': 2,
-                             'nTraj': 2500}}
+                             'nTraj': 500}}
+
+    lti = LTI()
+    lqr = time_varying_LQR(traj_config, lti, r, l)
+    state_container = np.zeros((3, lqr.nTraj - 1))
+    x_container = np.zeros((3, lqr.nTraj - 1))
+    ref_state_container = lqr.ref_state
+    robot = WMRSimulator()
+    robot.set_init_state(np.array([0.1, -0.1, np.pi / 6]))
+    vel_container = np.zeros((2, lqr.nTraj - 1))
+    for i in range(lqr.nTraj - 1):
+        curr_state = robot.get_state()
+        state_container[:, i] = curr_state
+        u = lqr.mpc_step(curr_state, i)
+        vel = robot.control_to_twist(u)
+        vel = np.array([vel[0], vel[2]])
+        vel_container[:, i] = vel
+        next_state, _, _, _, _ = robot.step(u)
+        x = SE2(ref_state_container[0, i], ref_state_container[1, i], ref_state_container[2, i]).between(
+            SE2(curr_state[0], curr_state[1], curr_state[2])).log().coeffs()
+        x_container[:, i] = x
+    return state_container, vel_container, lqr.ref_state, x_container, lqr.ref_control
+
+def time_varying_simulation_FBC(r, l):
+    traj_config = {'type': TrajType.EIGHT,
+                   'param': {'start_state': np.array([0, 0, 0]),
+                             'dt': 0.02,
+                             'scale': 2,
+                             'nTraj': 200}}
 
     lti = LTI()
     lqr = time_varying_LQR(traj_config, lti, r, l)
@@ -147,68 +150,109 @@ def time_varying_simulation(r, l):
 if __name__ == '__main__':
     init_state_container, init_vel_container, ref_state_container, init_x_container, ref_vel = time_varying_simulation(0.03, 0.3)
     trained_state_container, trained_vel_container, trained_ref_state_container, x_container, ref_vel = time_varying_simulation(0.036, 0.23)
-    # plot trajectory
+    # get curr dir
+    curr_dir = os.getcwd()
+    save_dir = os.path.join(curr_dir, 'data', 'time_varying_tracking')
     font_size = 15
     line_width = 2
+
+    # plot trajectory
+    # initial model
     plt.figure()
     plt.grid(True)
     plt.xticks(fontsize=font_size - 4)
     plt.yticks(fontsize=font_size - 4)
-    plt.plot(init_state_container[0, :], init_state_container[1, :], 'b')
-    plt.plot(trained_state_container[0, :], trained_state_container[1, :], 'r')
-    plt.plot(ref_state_container[0, :], ref_state_container[1, :], 'g', linestyle='-.')
-    plt.legend(['trajectory with initial model', 'trajectory with trained model', 'reference trajectory'], fontsize=font_size - 2)
+    plt.plot(init_state_container[0, :], init_state_container[1, :])
+    # plt.plot(trained_state_container[0, :], trained_state_container[1, :])
+    plt.plot(ref_state_container[0, :], ref_state_container[1, :])
+    plt.legend(['trajectory with initial model', 'reference trajectory'], fontsize=font_size - 2)
     plt.xlabel("$x~(m)$", fontsize=font_size)
     plt.ylabel("$y~(m)$", fontsize=font_size)
-    name = "time_vary_trajectory.jpg"
-    plt.savefig(name)
+    name = "init_time_vary_trajectory.jpg"
+    save_path = os.path.join(save_dir, name)
+    plt.savefig(save_path)
+    plt.show()
+
+    # trained model
+    plt.figure()
+    plt.grid(True)
+    plt.xticks(fontsize=font_size - 4)
+    plt.yticks(fontsize=font_size - 4)
+    plt.plot(trained_state_container[0, :], trained_state_container[1, :])
+    plt.plot(ref_state_container[0, :], ref_state_container[1, :])
+    plt.legend(['trajectory with learned model', 'reference trajectory'], fontsize=font_size - 2)
+    plt.xlabel("$x~(m)$", fontsize=font_size)
+    plt.ylabel("$y~(m)$", fontsize=font_size)
+    name = "learned_time_vary_trajectory.jpg"
+    save_path = os.path.join(save_dir, name)
+    plt.savefig(save_path)
     plt.show()
 
     # plot vel[0]
+    # initial model
     plt.figure()
     plt.grid(True)
     plt.xticks(fontsize=font_size - 4)
     plt.yticks(fontsize=font_size - 4)
-    plt.plot(init_vel_container[0, :], 'b')
-    plt.plot(trained_vel_container[0, :], 'r')
-    plt.plot(ref_vel[0, :], 'g',linestyle='-.')
-    plt.legend(['$v$ with initial model', '$v$ with trained model', 'reference $v$'], fontsize=font_size - 2)
+    plt.plot(init_vel_container[0, :])
+    # plt.plot(trained_vel_container[0, :])
+    plt.plot(ref_vel[0, :])
+    plt.legend(['$v$ with initial model', 'reference $v$'], fontsize=font_size - 2)
     plt.xlabel("k", fontsize=font_size)
     plt.ylabel("$v~(m/s)$", fontsize=font_size)
-    name = "time_vary_v.jpg"
-    plt.savefig(name)
+    name = "init_time_vary_v.jpg"
+    save_path = os.path.join(save_dir, name)
+    plt.savefig(save_path)
     plt.show()
+
+    # learned model
+    plt.figure()
+    plt.grid(True)
+    plt.xticks(fontsize=font_size - 4)
+    plt.yticks(fontsize=font_size - 4)
+    # plt.plot(init_vel_container[0, :])
+    plt.plot(trained_vel_container[0, :])
+    plt.plot(ref_vel[0, :])
+    plt.legend(['$v$ with learned model', 'reference $v$'], fontsize=font_size - 2)
+    plt.xlabel("k", fontsize=font_size)
+    plt.ylabel("$v~(m/s)$", fontsize=font_size)
+    name = "learned_time_vary_v.jpg"
+    save_path = os.path.join(save_dir, name)
+    plt.savefig(save_path)
+    plt.show()
+
 
     # plot vel[1]
+    # initial model
     plt.figure()
     plt.grid(True)
     plt.xticks(fontsize=font_size - 4)
     plt.yticks(fontsize=font_size - 4)
-    plt.plot(init_vel_container[1, :], 'b')
-    plt.plot(trained_vel_container[1, :], 'r')
-    plt.plot(ref_vel[1, :], 'g',linestyle='-.')
-    plt.legend(['$w$ with initial model', '$w$ with trained model', 'reference $w$'], fontsize=font_size - 2)
+    plt.plot(init_vel_container[1, :])
+    # plt.plot(trained_vel_container[1, :])
+    plt.plot(ref_vel[1, :])
+    plt.legend(['$w$ with initial model', 'reference $w$'], fontsize=font_size - 2)
     plt.xlabel("k", fontsize=font_size)
     plt.ylabel("$w~(rad/s)$", fontsize=font_size)
-    name = "time_vary_w.jpg"
-    plt.savefig(name)
+    name = "init_time_vary_w.jpg"
+    save_path = os.path.join(save_dir, name)
+    plt.savefig(save_path)
     plt.show()
 
-    # plot position error
-    font_size = 15
-    line_width = 2
+    # initial model
     plt.figure()
     plt.grid(True)
     plt.xticks(fontsize=font_size - 4)
     plt.yticks(fontsize=font_size - 4)
-    plt.plot(x_container[0, :], 'b')
-    plt.plot(x_container[1, :], 'r')
-    plt.plot(x_container[2, :], 'g')
-    plt.legend(['$x$', '$y$', '$\\theta$'], fontsize=font_size - 2)
+    # plt.plot(init_vel_container[1, :])
+    plt.plot(trained_vel_container[1, :])
+    plt.plot(ref_vel[1, :])
+    plt.legend(['$w$ with learned model', 'reference $w$'], fontsize=font_size - 2)
     plt.xlabel("k", fontsize=font_size)
-    plt.ylabel("$x~(m)$", fontsize=font_size)
-    name = "time_vary_x.jpg"
-    plt.savefig(name)
+    plt.ylabel("$w~(rad/s)$", fontsize=font_size)
+    name = "learned_time_vary_w.jpg"
+    save_path = os.path.join(save_dir, name)
+    plt.savefig(save_path)
     plt.show()
-    # print last x_container
-    print(x_container[:, -1])
+
+
