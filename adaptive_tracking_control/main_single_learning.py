@@ -2,7 +2,7 @@ from data_driven_FBC import *
 import os
 import time
 from matplotlib import ticker
-def MonteCarlo():
+def SingleLearning():
     totalSim = 1
     iteration = 5
     y_max = 0.8
@@ -17,7 +17,7 @@ def MonteCarlo():
     k1_container = np.zeros((totalSim, iteration+1))
     r_container = np.zeros((totalSim, iteration+1))
     l_container = np.zeros((totalSim, iteration+1))
-    nTraj = 5000
+    nTraj = 300
     x_trained_container = np.zeros((totalSim, nTraj-1))
     y_trained_container = np.zeros((totalSim, nTraj-1))
 
@@ -164,4 +164,4 @@ def MonteCarlo():
 
 
 if __name__ == '__main__':
-    MonteCarlo()
+    SingleLearning()

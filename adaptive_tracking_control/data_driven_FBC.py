@@ -47,7 +47,7 @@ class LTI:
             l = 0.15
             r = 0.08
         else:
-            l = np.random.uniform(0.2, 0.28)
+            l = np.random.uniform(0.2, 0.3)
             r = np.random.uniform(0.03, 0.05)
 
         self.dt = 0.02
@@ -153,18 +153,6 @@ def evaluation(lti, nTraj=500, learning=False):
 
         next_state, _, _, _, _ = robot.step(u)
 
-    # plt.figure()
-    # plt.plot(ref_state[0, :nTraj - 1], ref_state[1, :nTraj - 1], 'b')
-    # plt.plot(state_container[0, :nTraj - 1], state_container[1, :nTraj - 1], 'r')
-    # plt.title('learning: {}'.format(learning))
-    # legend = ['ref', 'actual']
-    # plt.legend(legend)
-    # plt.show()
-
-
-
-
-
     return state_container[0, :], state_container[1, :], error_container, control_container
 
 
@@ -214,7 +202,8 @@ def simulation(lti, learning=False):
         u = K @ x + k
         if learning:
             # u = u + np.sin(np.random.normal(0, 1, (m,)) * 0.1) + np.cos(np.random.normal(0, 1, (m,)) * 0.1)
-            u = u + 0.5 * np.random.normal(0, 0.1, (m,))
+            u = u + 0.5 * np.random.normal(0, 1, (m,))
+            # u = u + 0.5 * np.random.normal(0, 0.1, (m,))
             # u = u + np.random.uniform(-0.2, 0.2, (m,))
         # wheel_velocity_container[:, i] = robot.get_wheel_vel()
         control_container[:, i] = u
@@ -294,8 +283,6 @@ def projection_B(B, dt):
 def calculate_r_l(B, dt):
     r = (B[0, 0] + B[0, 1]) / dt
     l = (r * dt) / (B[2, 1] - B[2, 0]) * 2
-    print("r: ", r)
-    print("l: ", l)
     return r, l
 
 def learning(lti):
@@ -307,7 +294,7 @@ def learning(lti):
     data_container = simulation(lti, True)
     K_prev = np.zeros((m, n))
     k_prev = np.zeros((m,))
-    while np.linalg.norm(data_container.K - K_prev) > 0.001:
+    while np.linalg.norm(data_container.K - K_prev) > 0.01 or np.linalg.norm(data_container.k - k_prev) > 0.01:
         # if iteration > 0:
         #     break
         K_prev = data_container.K
