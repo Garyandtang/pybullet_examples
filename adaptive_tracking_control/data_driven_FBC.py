@@ -25,27 +25,31 @@ class training_data:
         self.B = np.zeros((n, m))
 
 class LTI:
-    def __init__(self):
-        self.system_init()
+    def __init__(self, fixed_param=False):
+        self.system_init(fixed_param)
         self.controller_init()
-        self.get_optimal_control()
+        self.get_ground_truth_control()
 
-    def get_optimal_control(self):
-        optimal_l = 0.23
-        optimal_r = 0.036
-        optimal_B = self.dt * np.array([[optimal_r / 2, optimal_r / 2],
+    def get_ground_truth_control(self):
+        ground_truth_l = 0.23
+        ground_truth_r = 0.036
+        ground_truth_B = self.dt * np.array([[ground_truth_r / 2, ground_truth_r / 2],
                               [0, 0],
-                              [-optimal_r / optimal_l, optimal_r / optimal_l]])
+                              [-ground_truth_r / ground_truth_l, ground_truth_r / ground_truth_l]])
 
-        self.k_optimal = -np.linalg.pinv(optimal_B) @ self.c
-        self.K_optimal = -ct.dlqr(self.A, optimal_B, self.Q, self.R)[0]
-        self.B_optimal = optimal_B
+        self.k_ground_truth = -np.linalg.pinv(ground_truth_B) @ self.c
+        self.K_ground_truth = -ct.dlqr(self.A, ground_truth_B, self.Q, self.R)[0]
+        self.B_ground_truth = ground_truth_B
 
-    def system_init(self):
-        l = np.random.uniform(0.2, 0.28)
-        r = np.random.uniform(0.03, 0.04)
-        # l = 0.23
-        # r = 0.036
+
+    def system_init(self, fixed_param=False):
+        if fixed_param:
+            l = 0.15
+            r = 0.05
+        else:
+            l = np.random.uniform(0.15, 0.3)
+            r = np.random.uniform(0.03, 0.05)
+
         self.dt = 0.02
         self.v = 0.02
         self.w = 0.2
@@ -57,9 +61,12 @@ class LTI:
                                      [-r / l, r / l]])
         self.c = -self.dt * self.twist
 
+        self.init_A = self.A
+        self.init_B = self.B
+        self.init_c = self.c
 
         self.Q = 200 * np.eye(3)
-        self.R = 10 * np.eye(2)
+        self.R = 1 * np.eye(2)
 
 
     def controller_init(self):
@@ -146,22 +153,10 @@ def evaluation(lti, nTraj=500, learning=False):
 
         next_state, _, _, _, _ = robot.step(u)
 
-    # plt.figure()
-    # plt.plot(ref_state[0, :nTraj - 1], ref_state[1, :nTraj - 1], 'b')
-    # plt.plot(state_container[0, :nTraj - 1], state_container[1, :nTraj - 1], 'r')
-    # plt.title('learning: {}'.format(learning))
-    # legend = ['ref', 'actual']
-    # plt.legend(legend)
-    # plt.show()
-
-
-
-
-
     return state_container[0, :], state_container[1, :], error_container, control_container
 
 
-def simulation(lti, learning=False):
+def simulation(lti, learning=False, variance=0.1):
     K = lti.K0
     k = lti.k0
     print("init K: ", lti.K_ini)
@@ -207,7 +202,8 @@ def simulation(lti, learning=False):
         u = K @ x + k
         if learning:
             # u = u + np.sin(np.random.normal(0, 1, (m,)) * 0.1) + np.cos(np.random.normal(0, 1, (m,)) * 0.1)
-            u = u + np.random.normal(0, 0.1, (m,))
+            # u = u + 0.5 * np.random.normal(0, 1, (m,))
+            u = u + np.random.normal(0, variance, (m,))
             # u = u + np.random.uniform(-0.2, 0.2, (m,))
         # wheel_velocity_container[:, i] = robot.get_wheel_vel()
         control_container[:, i] = u
@@ -287,20 +283,18 @@ def projection_B(B, dt):
 def calculate_r_l(B, dt):
     r = (B[0, 0] + B[0, 1]) / dt
     l = (r * dt) / (B[2, 1] - B[2, 0]) * 2
-    print("r: ", r)
-    print("l: ", l)
     return r, l
 
-def learning(lti):
+def learning(lti, variance=0.1):
     # lti = LTI()
     n = lti.A.shape[0]
     m = lti.B.shape[1]
     iteration = 0
     recovered_B_vector = np.zeros(0, dtype=np.ndarray)
-    data_container = simulation(lti, True)
+    data_container = simulation(lti, True, variance)
     K_prev = np.zeros((m, n))
     k_prev = np.zeros((m,))
-    while np.linalg.norm(data_container.K - K_prev) > 0.02 or np.linalg.norm(data_container.k - k_prev) > 0.02:
+    while np.linalg.norm(data_container.K - K_prev) > 0.01 or np.linalg.norm(data_container.k - k_prev) > 0.01:
         # if iteration > 0:
         #     break
         K_prev = data_container.K
@@ -321,12 +315,12 @@ def learning(lti):
         k = -np.linalg.pinv(B) @ lti.c
         data_container.K = K
         data_container.k = k
-        # print("current K: ", K)
-        # print("current k: ", k)
-        # print("optimal K: ", lti.optimal_K)
-        # print("error K: ", data_container.K - K_prev)
-        # print("error k: ", data_container.k - k_prev)
-        # print("====================================")
+        print("current K: ", K)
+        print("current k: ", k)
+        print("optimal K: ", lti.K_ground_truth)
+        print("error K: ", data_container.K - K_prev)
+        print("error k: ", data_container.k - k_prev)
+        print("====================================")
         iteration += 1
         if iteration > 100:
             return K, k, B, False

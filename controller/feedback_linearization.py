@@ -34,6 +34,7 @@ class FBLinearizationController:
                               [-np.sin(curr_state[2]), np.cos(curr_state[2]), 0],
                               [0, 0, 1]])
         error = frame_rot @ state_diff
+        # error[2] = SO2(error[2]).angle()
         u = self.K @ error
         v = v_d * np.cos(error[2]) - u[0]
         w = w_d - u[1]
@@ -62,6 +63,11 @@ class FBLinearizationController:
             w = self.w_max
         return np.array([v, w])
 
+    def vel_cmd_to_wheel_vel(self, vel_cmd, r, l):
+        v, w = vel_cmd
+        w_l = (2 * v - l * w) / (2 * r)
+        w_r = (2 * v + l * w) / (2 * r)
+        return np.array([w_l, w_r])
 
 def test_fb_linearization_controller():
     # set up init state and reference trajectory

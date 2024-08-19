@@ -1,41 +1,71 @@
 from data_driven_FBC import *
 import os
 import time
+from planner.ref_traj_generator import TrajGenerator
 from matplotlib import ticker
 def MonteCarlo():
+    # get reference trajectory
+    ref_sysm = LTI()
+    traj_config = {'type': TrajType.CIRCLE,
+                     'param': {'start_state': np.zeros((3,)),
+                              'linear_vel': ref_sysm.v,
+                              'angular_vel': ref_sysm.w,
+                              'nTraj': 299,
+                              'dt': 0.02}}
+    traj_gen = TrajGenerator(traj_config)
+    ref_state, ref_control, dt = traj_gen.get_traj()
+    ref_x = ref_state[0, :]
+    ref_y = ref_state[1, :]
     totalSim = 50
     iteration = 5
     y_max = 0.8
     y_min = -0.3
-    K0_container = np.zeros((totalSim, iteration))
-    K1_container = np.zeros((totalSim, iteration))
-    K2_container = np.zeros((totalSim, iteration))
-    K3_container = np.zeros((totalSim, iteration))
-    K4_container = np.zeros((totalSim, iteration))
-    K5_container = np.zeros((totalSim, iteration))
-    k0_container = np.zeros((totalSim, iteration))
-    k1_container = np.zeros((totalSim, iteration))
+    K0_container = np.zeros((totalSim, iteration + 1))
+    K1_container = np.zeros((totalSim, iteration + 1))
+    K2_container = np.zeros((totalSim, iteration + 1))
+    K3_container = np.zeros((totalSim, iteration + 1))
+    K4_container = np.zeros((totalSim, iteration + 1))
+    K5_container = np.zeros((totalSim, iteration + 1))
+    k0_container = np.zeros((totalSim, iteration + 1))
+    k1_container = np.zeros((totalSim, iteration + 1))
     r_container = np.zeros((totalSim, iteration+1))
     l_container = np.zeros((totalSim, iteration+1))
-    nTraj = 1700
+    nTraj = 300
     x_trained_container = np.zeros((totalSim, nTraj-1))
     y_trained_container = np.zeros((totalSim, nTraj-1))
 
     x_init_container = np.zeros((totalSim, nTraj - 1))
     y_init_container = np.zeros((totalSim, nTraj - 1))
 
+    init_x_error = np.zeros((totalSim, ))
+    init_y_error = np.zeros((totalSim, ))
+    learned_x_error = np.zeros((totalSim, ))
+    learned_y_error = np.zeros((totalSim, ))
     totalFail = 0
     i = 0
     avg_learning_time = 0
     while i < totalSim:
         lti = LTI()
         x_init_container[i, :], y_init_container[i, :], _, _ = evaluation(lti, nTraj)
+        # calculate the initial error
+        init_x_error[i] = np.linalg.norm(x_init_container[i, :] - ref_x)
+        init_y_error[i] = np.linalg.norm(y_init_container[i, :] - ref_y)
         r_container[i, 0], l_container[i, 0] = calculate_r_l(lti.B, lti.dt)
-        optimal_K = lti.K_optimal
-        optimal_k = lti.k_optimal
+        init_K = lti.K_ini
+        init_k = lti.k_ini
+        K0_container[i, 0] = init_K[0, 0]
+        K1_container[i, 0] = init_K[0, 1]
+        K2_container[i, 0] = init_K[0, 2]
+        K3_container[i, 0] = init_K[1, 0]
+        K4_container[i, 0] = init_K[1, 1]
+        K5_container[i, 0] = init_K[1, 2]
+        k0_container[i, 0] = init_k[0]
+        k1_container[i, 0] = init_k[1]
+        optimal_K = lti.K_ground_truth
+        optimal_k = lti.k_ground_truth
         for j in range(iteration):
             start_time = time.time()
-            K, k, B, successful = learning(lti)
+            K, k, B, successful = learning(lti, 2)
             learning_time = time.time() - start_time
             avg_learning_time += learning_time
             print("learning time: ", learning_time)
@@ -45,26 +75,95 @@ def MonteCarlo():
                 i = i - 1
                 break
             r, l = calculate_r_l(B, lti.dt)
-            K0_container[i, j] = K[0, 0] - optimal_K[0, 0]
-            K1_container[i, j] = K[0, 1] - optimal_K[0, 1]
-            K2_container[i, j] = K[0, 2] - optimal_K[0, 2]
-            K3_container[i, j] = K[1, 0] - optimal_K[1, 0]
-            K4_container[i, j] = K[1, 1] - optimal_K[1, 1]
-            K5_container[i, j] = K[1, 2] - optimal_K[1, 2]
-            k0_container[i, j] = k[0] - optimal_k[0]
-            k1_container[i, j] = k[1] - optimal_k[1]
+            K0_container[i, j + 1] = K[0, 0]  # - optimal_K[0, 0]
+            K1_container[i, j + 1] = K[0, 1]  # - optimal_K[0, 1]
+            K2_container[i, j + 1] = K[0, 2]  # - optimal_K[0, 2]
+            K3_container[i, j + 1] = K[1, 0]  # - optimal_K[1, 0]
+            K4_container[i, j + 1] = K[1, 1]  # - optimal_K[1, 1]
+            K5_container[i, j + 1] = K[1, 2]  # - optimal_K[1, 2]
+            k0_container[i, j + 1] = k[0]  # - optimal_k[0]
+            k1_container[i, j + 1] = k[1]  # - optimal_k[1]
             r_container[i, j+1] = r
             l_container[i, j+1] = l
 
         x_trained_container[i, :], y_trained_container[i, :], _, _ = evaluation(lti, nTraj)
+        # calculate the learned error
+        learned_x_error[i] = np.linalg.norm(x_trained_container[i, :] - ref_x)
+        learned_y_error[i] = np.linalg.norm(y_trained_container[i, :] - ref_y)
         i = i + 1
+
+    # calculate the average learning time
     avg_learning_time = avg_learning_time / (totalSim * iteration)
     print("avg learning time: ", avg_learning_time)
-    font_size = 12
+    font_size = 16
     line_width = 2
     # dirpath
     dirpath = os.getcwd()
-    data_path = os.path.join(dirpath, "data")
+    data_path = os.path.join(dirpath, "data", "mote_carlo")
+    if not os.path.exists(data_path):
+        os.makedirs(data_path)
+
+    # box plot initial r and final r
+    r_init_container = r_container[:, 0]
+    r_final_container = r_container[:, -1]
+    plt.figure()
+    # box plot with color
+    datas = [r_init_container, r_final_container]
+    colors = [[0.4940, 0.1840, 0.5560], [0.9290, 0.6940, 0.1250]]
+    bplot = plt.boxplot(datas, showfliers=False, patch_artist=True, boxprops={'facecolor': 'none', 'alpha': 0.5})
+    plt.xticks([1, 2], ['initial $r$', 'learned $r$'], fontsize=font_size)
+    plt.ylabel('length ($m$)', fontsize=font_size)
+    ax = plt.gca()
+    ax.yaxis.set_major_formatter(ticker.FormatStrFormatter('%0.3f'))
+    for patch, color in zip(bplot['boxes'], colors):
+        patch.set_facecolor(color)
+    # save bplot
+    plt.savefig(os.path.join(data_path, "r_boxplot.jpg"))
+    plt.show()
+    # box plot initial l and final l
+    l_init_container = l_container[:, 0]
+    l_final_container = l_container[:, -1]
+    plt.figure()
+    colors = [[0.8500, 0.3250, 0.0980], [0.9290, 0.6940, 0.1250]]
+    bplot = plt.boxplot([l_init_container, l_final_container],showfliers=False, patch_artist=True, boxprops={'facecolor': 'none', 'alpha': 0.5})
+    plt.xticks([1, 2], ['initial $l$', 'learned $l$'], fontsize=font_size)
+    for patch, color in zip(bplot['boxes'], colors):
+        patch.set_facecolor(color)
+    plt.ylabel('length ($m$)', fontsize=font_size)
+
+    plt.savefig(os.path.join(data_path, "l_boxplot.jpg"))
+    plt.show()
+
+    # box plot initial x error and final x error
+    x_init_error_container = init_x_error
+    x_final_error_container = learned_x_error
+    plt.figure()
+    colors = [[0.9290, 0.6940, 0.1250], [0.9290, 0.6940, 0.1250]]
+    bplot = plt.boxplot([x_init_error_container, x_final_error_container],showfliers=False, patch_artist=True, boxprops={'facecolor': 'none', 'alpha': 0.5})
+    plt.xticks([1, 2], ['initial $x^{p}$ error', 'learned $x^{p}$ error'], fontsize=font_size)
+    for patch, color in zip(bplot['boxes'], colors):
+        patch.set_facecolor(color)
+
+    plt.ylabel('Mean Square Error ($m$)', fontsize=font_size)
+
+    plt.savefig(os.path.join(data_path, "x_error_boxplot.jpg"))
+    plt.show()
+
+    # box plot initial y error and final y error
+    y_init_error_container = init_y_error
+    y_final_error_container = learned_y_error
+    plt.figure()
+    colors = [[0, 0.4470, 0.7410], [0.9290, 0.6940, 0.1250]]
+    bplot = plt.boxplot([y_init_error_container, y_final_error_container],showfliers=False, patch_artist=True, boxprops={'facecolor': 'none', 'alpha': 0.5})
+    plt.xticks([1, 2], ['initial $y^{p}$ error', 'learned $y^{p}$ error'], fontsize=font_size)
+    for patch, color in zip(bplot['boxes'], colors):
+        patch.set_facecolor(color)
+
+    plt.ylabel('Mean Square Error ($m$)', fontsize=font_size)
+    plt.savefig(os.path.join(data_path, "y_error_boxplot.jpg"))
+    plt.show()
+
+
     # plot init x and y in the same figure
     plt.figure()
     plt.grid(True)
@@ -74,7 +173,7 @@ def MonteCarlo():
     plt.yticks(fontsize=font_size-2)
     plt.plot(x_init_container.T, y_init_container.T, linewidth=line_width)
     # plt.tight_layout()
-    plt.xlabel("$x~(m)$",fontsize=font_size)
+    plt.xlabel("$x~(m)$", fontsize=font_size)
     plt.ylabel("$y~(m)$", fontsize=font_size)
     name = "init_trajectory.jpg"
     plt.savefig(os.path.join(data_path, name))
