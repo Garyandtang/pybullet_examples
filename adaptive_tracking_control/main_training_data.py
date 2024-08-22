@@ -3,7 +3,7 @@ import os
 
 def get_training_data():
     lti = LTI()
-    nTraj = 300
+    nTraj = 1300
     _, _, error_container, control_container = evaluation(lti, nTraj, learning=True)
 
     # dirpath

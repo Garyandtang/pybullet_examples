@@ -69,6 +69,8 @@ def SingleLearning():
         x_trained_container[i, :], y_trained_container[i, :], _, _ = evaluation(lti, nTraj)
         i = i + 1
     avg_learning_time = avg_learning_time / (totalSim * iteration)
+    print("optmial K: ", optimal_K)
+    print("optimal k: ", optimal_k)
     print("avg learning time: ", avg_learning_time)
     font_size = 12
     line_width = 2
