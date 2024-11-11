@@ -32,6 +32,16 @@ def coadjoint(twist):
     coadj[0:3, 3:6] = -v_hat
     return coadj
 
+def gamma_right(I, twist):
+    omega = twist[0:3]
+    v = twist[3:6]
+    I_omega_hat = skew(I @ omega)
+    v_hat = skew(v)
+    res = np.zeros((6, 6))
+    res[0:3, 0:3] = I_omega_hat
+    res[3:6, 0:3] = v_hat
+    res[0:3, 3:6] = v_hat
+    return res
 
 class GeometricMPC:
     def __init__(self, ref_traj_config):
@@ -113,9 +123,39 @@ class GeometricMPC:
         for i in range(N):
             index = min(k + i, self.nTraj - 1)
             ref_twsit = self.ref_twist[:, index]
-            adj = -adjoint(ref_twsit)
-            coadj = -coadjoint(ref_twsit)
-            H =  J_inv @ coadj @ J + J_inv
+            adj = adjoint(ref_twsit)
+            coadj = coadjoint(ref_twsit)
+            temp = gamma_right(self.I, ref_twsit)
+            H =  J_inv @ coadj @ J + J_inv @ temp
+            A = np.zeros((12, 12))
+            A[0:6, 0:6] = -adj # -adjoint
+            A[0:6, 6:12] = np.eye(6)
+            A[6:12, 6:12] = H
+            B = np.zeros((12, 6))
+            B[6:12, :] = J_inv
+            x_next = x_var[:, i] + dt * (A @ x_var[:, i] + B @ u_var[:, i])
+            opti.subject_to(x_var[:, i+1] == x_next)
+
+        # cost function
+        cost = 0
+        for i in range(N):
+            index = min(k + i, self.nTraj - 1)
+            cost += ca.mtimes([x_var[:, i].T, Q, x_var[:, i]]) + ca.mtimes(
+                [u_var[:, i].T, R, u_var[:, i]])
+        cost += ca.mtimes([x_var[:, N].T, 100*Q, x_var[:, N]])
+
+        # control bound
+        # todo
+
+        opts_setting = { 'printLevel': 'none'}
+        opti.minimize(cost)
+        opti.solver('qpoases',opts_setting)
+        sol = opti.solve()
+        psi_sol = sol.value(x_var)
+        u_sol = sol.value(u_var)
+        end_time = time.time()
+        self.solve_time = end_time - start_time
+        return u_sol[:, 0]
 
 
 
