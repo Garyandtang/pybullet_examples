@@ -11,10 +11,10 @@ import numpy as np
 import pybullet as p
 import pybullet_data
 from environments.wheeled_mobile_robot.wheeled_mobile_robot_base import WheeledMobileRobot
-from utils.symbolic_system import FirstOrderModel
+from utilsStuff.symbolic_system import FirstOrderModel
 from gymnasium import spaces
 from functools import partial
-from utils.enum_class import CostType, DynamicsType
+from utilsStuff.enum_class import CostType, DynamicsType
 
 class Turtlebot(WheeledMobileRobot):
     NAME = 'turtlebot'

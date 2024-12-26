@@ -14,6 +14,7 @@ import cvxpy as cvx
 import utils
 
 from adaptive import AdaptiveMethod
+from adaptive_tracking_control.main_single_learning import LTI
 
 
 def function_value(Q, R, A, B):
@@ -256,6 +257,11 @@ class OFUStrategy(AdaptiveMethod):
 def _main():
     import examples
     A_star, B_star = examples.unstable_laplacian_dynamics()
+
+    lti = LTI(fixed_param=True)
+
+    A = lti.A
+    B = lti.B
 
     # perturb Ahat, Bhat
     eps_A = 0.1
