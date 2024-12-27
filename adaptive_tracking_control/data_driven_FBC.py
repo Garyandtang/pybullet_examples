@@ -41,12 +41,17 @@ class LTI:
         self.k_ground_truth = -np.linalg.pinv(ground_truth_B) @ self.c
         self.K_ground_truth = -ct.dlqr(self.A, ground_truth_B, self.Q, self.R)[0]
         self.B_ground_truth = ground_truth_B
+        self.A_ground_truth = self.A
 
 
     def system_init(self, fixed_param=False):
         if fixed_param:
             l = 0.15
             r = 0.05
+            ground_truth_l = 0.23
+            ground_truth_r = 0.036
+            # l = 0.23
+            # r = 0.036
         else:
             l = np.random.uniform(0.15, 0.3)
             r = np.random.uniform(0.03, 0.05)
@@ -112,6 +117,19 @@ class LTI:
 
     def update_B(self, B):
         self.B = B
+
+    def print_K_optimal(self):
+        print("K_optimal(ground truth): ", self.K_ground_truth)
+
+    def print_K_ini(self):
+        print("K_ini: ", self.K_ini)
+
+    def print_init_info(self):
+        print("init A: ", self.init_A)
+        print("init B: ", self.init_B)
+        print("init c: ", self.init_c)
+        print("init K: ", self.K_ini)
+        print("init k: ", self.k_ini)
 
 def evaluation(lti, nTraj=500, learning=False):
     K = lti.K0
@@ -282,8 +300,9 @@ def projection_B(B, dt):
     return B
 
 def calculate_r_l(B, dt):
-    r = (B[0, 0] + B[0, 1]) / dt
-    l = (r * dt) / (B[2, 1] - B[2, 0]) * 2
+    projected_B = projection_B(B, dt)
+    r = (projected_B[0, 0] + projected_B[0, 1]) / dt
+    l = (r * dt) / (projected_B[2, 1] - projected_B[2, 0]) * 2
     return r, l
 
 def learning(lti, variance=0.1):

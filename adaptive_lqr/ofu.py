@@ -258,11 +258,6 @@ def _main():
     import examples
     A_star, B_star = examples.unstable_laplacian_dynamics()
 
-    lti = LTI(fixed_param=True)
-
-    A = lti.A
-    B = lti.B
-
     # perturb Ahat, Bhat
     eps_A = 0.1
     eps_B = 0.1
@@ -278,6 +273,39 @@ def _main():
     print(Acur)
     print("Bcur")
     print(Bcur)
+
+def _main_wheeled_robot():
+
+    lti = LTI(fixed_param=True)
+
+    A = lti.A
+    B = lti.B
+    K_init = lti.K0
+    A_star = lti.A_ground_truth
+    B_star = lti.B_ground_truth
+    Q = lti.Q
+    R = lti.R
+    lti.print_init_info()
+
+    lti.print_K_optimal()
+
+
+    rng = np.random
+
+    env = OFUStrategy(Q=Q,
+                      R=R,
+                      A_star=A_star,
+                      B_star=B_star,
+                      sigma_w=0,
+                      reg=1e-5,
+                      actual_error_multiplier=1,
+                      rls_lam=None)
+
+    env.reset(rng)
+    env.prime(1200, K_init, 1, rng, lti)
+    for idx in range(500):
+        env.step(rng)
+
 
 def _main():
     import examples
@@ -309,5 +337,5 @@ def _main():
 if __name__ == '__main__':
     logging.basicConfig(level=logging.INFO)
     np.set_printoptions(linewidth=200)
-    _main()
+    _main_wheeled_robot()
 

@@ -13,6 +13,13 @@ import time
 import itertools as it
 
 from abc import ABC, abstractmethod
+from environments.numerical_simulator.WMR_simulator import WMRSimulator
+from adaptive_tracking_control.data_driven_FBC import LTI, calculate_r_l
+from planner.ref_traj_generator import TrajGenerator
+from utilsStuff.enum_class import TrajType, ControllerType, LiniearizationType
+from manifpy import SE2, SE2Tangent, SO2, SO2Tangent
+
+
 
 
 class AdaptiveMethod(ABC):
@@ -130,7 +137,7 @@ class AdaptiveMethod(ABC):
         self._last_reset_time = time.time()
         self._has_primed = False
 
-    def prime(self, num_iterations, static_feedback, excitation, rng):
+    def prime(self, num_iterations, static_feedback, excitation, rng, lti= LTI(True)):
         """Initialize the adaptive method with rollouts
 
         Must be called after reset() and before step() is called
@@ -141,19 +148,43 @@ class AdaptiveMethod(ABC):
         assert excitation > 0
 
         rng = self._get_rng(rng)
+        traj_config = {'type': TrajType.CIRCLE,
+                       'param': {'start_state': np.zeros((3,)),
+                                 'linear_vel': lti.twist[0],
+                                 'angular_vel': lti.twist[2],
+                                 'nTraj': num_iterations,
+                                 'dt': lti.dt}}
+        traj_gen = TrajGenerator(traj_config)
+        ref_state, ref_velocity, dt = traj_gen.get_traj()
 
-        for _ in range(num_iterations):
-            inp = static_feedback.dot(self._state_cur) + excitation * rng.normal(size=(self._p,))
-            xnext = self._A_star.dot(self._state_cur) + \
-                    self._B_star.dot(inp) + \
-                    self._sigma_w * rng.normal(size=(self._n,))
-
-            self._state_history.append(self._state_cur)
-            self._input_history.append(inp)
+        robot = WMRSimulator()
+        K = static_feedback
+        k = lti.k_ini
+        for i in range(num_iterations-1):
+            curr_state = robot.get_state()
+            curr_ref = ref_state[:, i]
+            x = SE2(curr_ref[0], curr_ref[1], curr_ref[2]).between(
+                SE2(curr_state[0], curr_state[1], curr_state[2])).log().coeffs()
+            u = K @ x + k + excitation * rng.normal(size=(self._p,))
+            next_state,_,_,_,_ = robot.step(u)
+            self._state_history.append(x)
+            self._input_history.append(u - k)
+            next_ref = ref_state[:, i+1]
+            xnext = SE2(next_ref[0], next_ref[1], next_ref[2]).between(
+                SE2(next_state[0], next_state[1], next_state[2])).log().coeffs()
             self._transition_history.append(xnext)
 
+            # inp = static_feedback.dot(self._state_cur) + excitation * rng.normal(size=(self._p,))
+            # xnext = self._A_star.dot(self._state_cur) + \
+            #         self._B_star.dot(inp) + \
+            #         self._sigma_w * rng.normal(size=(self._n,))
+
+            # self._state_history.append(self._state_cur)
+            # self._input_history.append(inp)
+            # self._transition_history.append(xnext)
+
             if self._rls is not None:
-                self._rls.update(self._state_cur, inp, xnext)
+                self._rls.update(self._state_cur, u, xnext)
                 Ahat, Bhat, _ = self._rls.get_estimate()
                 eps_A = np.linalg.norm(Ahat - self._A_star, ord=2)
                 eps_B = np.linalg.norm(Bhat - self._B_star, ord=2)
@@ -166,6 +197,14 @@ class AdaptiveMethod(ABC):
                 np.array(self._input_history),
                 np.array(self._transition_history),
                 rng)
+        print("A_hat: ", Ahat)
+        print("B_hat: ", Bhat)
+        print("A_star: ", self._A_star)
+        print("B_star: ", self._B_star)
+        print("current K: ", self._current_K)
+        r, l = calculate_r_l(Bhat, lti.dt)
+        print("r: ", r)
+        print("l: ", l)
         eps_A = np.linalg.norm(Ahat - self._A_star, ord=2)
         eps_B = np.linalg.norm(Bhat - self._B_star, ord=2)
 
