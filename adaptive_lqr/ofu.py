@@ -276,7 +276,7 @@ def _main():
 
 def _main_wheeled_robot():
 
-    lti = LTI(fixed_param=True)
+    lti = LTI(fixed_param=False)
 
     A = lti.A
     B = lti.B
@@ -302,7 +302,7 @@ def _main_wheeled_robot():
                       rls_lam=None)
 
     env.reset(rng)
-    env.prime(1200, K_init, 1, rng, lti)
+    env.prime(1200, K_init, 0.1, rng, lti)
     for idx in range(500):
         env.step(rng)
 

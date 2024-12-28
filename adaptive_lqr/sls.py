@@ -16,6 +16,8 @@ import scipy.linalg
 
 from abc import ABC, abstractmethod
 from adaptive import AdaptiveMethod
+from adaptive_tracking_control.main_single_learning import LTI
+
 
 
 class SLSInfeasibleException(Exception):
@@ -221,9 +223,12 @@ def sls_synth(Q, R, Ahat, Bhat, eps_A, eps_B, T, gamma, alpha, logger=None):
     constr = []
 
     constr.append(Phi_x[:n, :] == np.eye(n))
-    for k in range(T-1):
-        constr.append(Phi_x[n*(k+1):n*(k+1+1), :] == Ahat*Phi_x[n*k:n*(k+1), :] + Bhat*Phi_u[p*k:p*(k+1), :])
-    constr.append(Ahat*Phi_x[n*(T-1):, :] + Bhat*Phi_u[p*(T-1):, :] == 0)
+    for k in range(T - 1):
+        constr.append(Phi_x[n * (k + 1):n * (k + 1 + 1), :] == Ahat @ Phi_x[n * k:n * (k + 1), :] + Bhat @ Phi_u[p * k:p * (k + 1),:])
+    constr.append(Ahat @ Phi_x[n * (T - 1):, :] + Bhat @ Phi_u[p * (T - 1):, :] == 0)
+    # for k in range(T-1):
+    #     constr.append(Phi_x[n*(k+1):n*(k+1+1), :] == Ahat*Phi_x[n*k:n*(k+1), :] + Bhat*Phi_u[p*k:p*(k+1), :])
+    # constr.append(Ahat*Phi_x[n*(T-1):, :] + Bhat*Phi_u[p*(T-1):, :] == 0)
 
     # H2 constraint:
     # By Parseval's identity, this is equal (up to constants) to
@@ -241,8 +246,8 @@ def sls_synth(Q, R, Ahat, Bhat, eps_A, eps_B, T, gamma, alpha, logger=None):
     constr.append(
         cvx.norm(
             cvx.bmat(
-                [[Q_sqrt*Phi_x[n*k:n*(k+1), :]] for k in range(T)] +
-                [[R_sqrt*Phi_u[p*k:p*(k+1), :]] for k in range(T)]),
+                [[Q_sqrt @ Phi_x[n*k:n*(k+1), :]] for k in range(T)] +
+                [[R_sqrt @ Phi_u[p*k:p*(k+1), :]] for k in range(T)]),
             'fro') <= htwo_cost)
 
     # H-infinity constraint
@@ -656,24 +661,69 @@ def _main():
     for idx in range(500):
         env.step(rng)
 
+    env = SLS_FIRStrategy(Q=Q,
+                          R=R,
+                          A_star=A_star,
+                          B_star=B_star,
+                          sigma_w=0,
+                          sigma_explore=0.,
+                          reg=1e-5,
+                          epoch_multiplier=5,
+                          truncation_length=2,
+                          actual_error_multiplier=1,
+                          rls_lam=None)
+
+    env.reset(rng)
+    env.prime(10, K_init, 0.5, rng)
+    for idx in range(500):
+        env.step(rng)
+def _main_wheeled_robot():
+
+    lti = LTI(fixed_param=False)
+
+    A = lti.A
+    B = lti.B
+    K_init = lti.K0
+    A_star = lti.A_ground_truth
+    B_star = lti.B_ground_truth
+    Q = lti.Q
+    R = lti.R
+    lti.print_init_info()
+
+    lti.print_K_optimal()
+
+
+    rng = np.random
     env = SLS_CommonLyapunovStrategy(Q=Q,
                                      R=R,
                                      A_star=A_star,
                                      B_star=B_star,
-                                     sigma_w=1,
-                                     sigma_explore=0.1,
+                                     sigma_w=0,
+                                     sigma_explore=0.,
                                      reg=1e-5,
                                      epoch_multiplier=10,
-                                     actual_error_multiplier=1, 
+                                     actual_error_multiplier=1,
                                      rls_lam=None)
 
+    # env = SLS_FIRStrategy(Q=Q,
+    #                       R=R,
+    #                       A_star=A_star,
+    #                       B_star=B_star,
+    #                       sigma_w=0,
+    #                       sigma_explore=0,
+    #                       reg=1e-5,
+    #                       epoch_multiplier=10,
+    #                       truncation_length=12,
+    #                       actual_error_multiplier=1,
+    #                       rls_lam=None)
+
     env.reset(rng)
-    env.prime(250, K_init, 0.5, rng)
+    env.prime(120, K_init, 10, rng)
     for idx in range(500):
         env.step(rng)
 
 if __name__ == '__main__':
     logging.basicConfig(level=logging.DEBUG)
     np.set_printoptions(linewidth=200)
-    _main()
+    _main_wheeled_robot()
 
