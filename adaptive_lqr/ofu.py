@@ -11,10 +11,10 @@ import logging
 import time
 import cvxpy as cvx
 
-import utils
+import adaptive_lqr.utils as utils
 
-from adaptive import AdaptiveMethod
-from adaptive_tracking_control.main_single_learning import LTI
+from adaptive_lqr.adaptive import AdaptiveMethod
+from adaptive_tracking_control.main_single_learning import LTI, evaluation
 
 
 def function_value(Q, R, A, B):
@@ -288,6 +288,7 @@ def _main_wheeled_robot():
     lti.print_init_info()
 
     lti.print_K_optimal()
+    x_container_init, y_container_init,_ ,_ = evaluation(lti, 1700, False)
 
 
     rng = np.random
@@ -303,9 +304,19 @@ def _main_wheeled_robot():
 
     env.reset(rng)
     env.prime(1200, K_init, 0.1, rng, lti)
-    for idx in range(500):
-        env.step(rng)
+    lti.K0 = env.learned_K
+    lti.k0 = env.learned_k
+    x_container, y_container,_ ,_ = evaluation(lti, 1700, False)
+    # plot x y
+    import matplotlib.pyplot as plt
+    plt.figure()
+    # plt.plot(x_container_init, y_container_init)
+    plt.plot(x_container, y_container)
+    # plt.legend(['initial', 'learned'])
+    plt.show()
 
+
+    print(1)
 
 def _main():
     import examples

@@ -7,14 +7,14 @@ different adaptive strategies.
 
 
 import numpy as np
-import utils
+import adaptive_lqr.utils as utils
 import logging
 import time
 import itertools as it
 
 from abc import ABC, abstractmethod
 from environments.numerical_simulator.WMR_simulator import WMRSimulator
-from adaptive_tracking_control.data_driven_FBC import LTI, calculate_r_l
+from adaptive_tracking_control.data_driven_FBC import LTI, calculate_r_l,projection_B
 from planner.ref_traj_generator import TrajGenerator
 from utilsStuff.enum_class import TrajType, ControllerType, LiniearizationType
 from manifpy import SE2, SE2Tangent, SO2, SO2Tangent
@@ -136,6 +136,8 @@ class AdaptiveMethod(ABC):
         self._state_cur = np.zeros((self._n,))
         self._last_reset_time = time.time()
         self._has_primed = False
+        self.estimated_l = None
+        self.estimated_r = None
 
     def prime(self, num_iterations, static_feedback, excitation, rng, lti= LTI(True)):
         """Initialize the adaptive method with rollouts
@@ -174,15 +176,6 @@ class AdaptiveMethod(ABC):
                 SE2(next_state[0], next_state[1], next_state[2])).log().coeffs()
             self._transition_history.append(xnext)
 
-            # inp = static_feedback.dot(self._state_cur) + excitation * rng.normal(size=(self._p,))
-            # xnext = self._A_star.dot(self._state_cur) + \
-            #         self._B_star.dot(inp) + \
-            #         self._sigma_w * rng.normal(size=(self._n,))
-
-            # self._state_history.append(self._state_cur)
-            # self._input_history.append(inp)
-            # self._transition_history.append(xnext)
-
             if self._rls is not None:
                 self._rls.update(self._state_cur, u, xnext)
                 Ahat, Bhat, _ = self._rls.get_estimate()
@@ -203,6 +196,12 @@ class AdaptiveMethod(ABC):
         print("B_star: ", self._B_star)
         print("current K: ", self._current_K)
         r, l = calculate_r_l(Bhat, lti.dt)
+        self.estimated_r = r
+        self.estimated_l = l
+        self.estimated_A = Ahat
+        self.estimated_B = Bhat
+        self.learned_K = self._current_K
+        self.learned_k = -np.linalg.pinv(projection_B(Bhat, lti.dt)) @ lti.c
         print("r: ", r)
         print("l: ", l)
         eps_A = np.linalg.norm(Ahat - self._A_star, ord=2)

@@ -3,6 +3,8 @@ import os
 import time
 from planner.ref_traj_generator import TrajGenerator
 from matplotlib import ticker
+from adaptive_lqr.ts import TSStrategy
+from adaptive_lqr.ofu import OFUStrategy
 def MonteCarlo():
     # get reference trajectory
     ref_sysm = LTI()
@@ -41,11 +43,74 @@ def MonteCarlo():
     init_y_error = np.zeros((totalSim, ))
     learned_x_error = np.zeros((totalSim, ))
     learned_y_error = np.zeros((totalSim, ))
+
+    # adaptive lqr container
+    r_container_ts = np.zeros(totalSim)
+    l_container_ts = np.zeros(totalSim)
+    r_container_ofu = np.zeros(totalSim)
+    l_container_ofu = np.zeros(totalSim)
+
+    x_error_container_ts = np.zeros(totalSim)
+    y_error_container_ts = np.zeros(totalSim)
+    x_error_container_ofu = np.zeros(totalSim)
+    y_error_container_ofu = np.zeros(totalSim)
+
+
     totalFail = 0
     i = 0
     avg_learning_time = 0
+    lti_for_evaluation = LTI()
     while i < totalSim:
+        # initialize the system
         lti = LTI()
+        Q = lti.Q
+        R = lti.R
+        A_star = lti.A_ground_truth
+        B_star = lti.B_ground_truth
+        K_init = lti.K0
+
+        # ofu training
+        rng = np.random
+        ofu_env = OFUStrategy(Q=Q,
+                          R=R,
+                          A_star=A_star,
+                          B_star=B_star,
+                          sigma_w=0,
+                          reg=1e-5,
+                          actual_error_multiplier=1,
+                          rls_lam=None)
+        ofu_env.reset(rng)
+        ofu_env.prime(1000, K_init, 0.1, rng, lti)
+        A_hat = ofu_env.estimated_A
+        B_hat = ofu_env.estimated_B
+        lti_for_evaluation.K0, lti_for_evaluation.k0 = lti.calculate_K_k(A_hat, B_hat)
+        r_container_ofu[i], l_container_ofu[i] = ofu_env.estimated_r, ofu_env.estimated_l
+        ofu_x_container, ofu_y_container, _ , _= evaluation(lti_for_evaluation, nTraj)
+        x_error_container_ofu[i] = np.linalg.norm(ofu_x_container - ref_x)
+        y_error_container_ofu[i] = np.linalg.norm(ofu_y_container - ref_y)
+
+        # ts training
+        ts_env = TSStrategy(Q=Q,
+                         R=R,
+                         A_star=A_star,
+                         B_star=B_star,
+                         sigma_w=0,
+                         reg=1e-5,
+                         tau=500,
+                         actual_error_multiplier=1,
+                         rls_lam=None)
+        ts_env.reset(rng)
+        ts_env.prime(1300, K_init, 0.1, rng, lti)
+        A_hat = ts_env.estimated_A
+        B_hat = ts_env.estimated_B
+        lti_for_evaluation.K0, lti_for_evaluation.k0 = lti.calculate_K_k(A_hat, B_hat)
+        r_container_ts[i], l_container_ts[i] = ts_env.estimated_r, ts_env.estimated_l
+        ts_x_container, ts_y_container, _, _ = evaluation(lti_for_evaluation, nTraj)
+        x_error_container_ts[i] = np.linalg.norm(ts_x_container - ref_x)
+        y_error_container_ts[i] = np.linalg.norm(ts_y_container - ref_y)
+
+        # lti.K0 = ofu_env.learned_K
+        # lti.k0 = ofu_env.learned_k
         x_init_container[i, :], y_init_container[i, :], _, _ = evaluation(lti, nTraj)
         # calculate the initial error
         init_x_error[i] = np.linalg.norm(x_init_container[i, :] - ref_x)
@@ -107,12 +172,14 @@ def MonteCarlo():
     r_init_container = r_container[:, 0]
     r_final_container = r_container[:, -1]
     plt.figure()
+    plt.grid(True)
     # box plot with color
-    datas = [r_init_container, r_final_container]
-    colors = [[0.4940, 0.1840, 0.5560], [0.9290, 0.6940, 0.1250]]
+    datas = [r_init_container, r_container_ofu, r_container_ts, r_final_container]
+    colors = [[0.4940, 0.1840, 0.5560], [0.8500, 0.3250, 0.0980], [0.9290, 0.6940, 0.1250], [0.9290, 0.6940, 0.1250]]
     bplot = plt.boxplot(datas, showfliers=False, patch_artist=True, boxprops={'facecolor': 'none', 'alpha': 0.5})
-    plt.xticks([1, 2], ['initial $r$', 'learned $r$'], fontsize=font_size)
+    plt.xticks([1, 2, 3, 4], ['initial', 'ofu', 'ts', 'our'], fontsize=font_size)
     plt.ylabel('length ($m$)', fontsize=font_size)
+    plt.title('radium $r$', fontsize=font_size)
     ax = plt.gca()
     ax.yaxis.set_major_formatter(ticker.FormatStrFormatter('%0.3f'))
     for patch, color in zip(bplot['boxes'], colors):
@@ -120,13 +187,16 @@ def MonteCarlo():
     # save bplot
     plt.savefig(os.path.join(data_path, "r_boxplot.jpg"))
     plt.show()
+
     # box plot initial l and final l
     l_init_container = l_container[:, 0]
     l_final_container = l_container[:, -1]
     plt.figure()
-    colors = [[0.8500, 0.3250, 0.0980], [0.9290, 0.6940, 0.1250]]
-    bplot = plt.boxplot([l_init_container, l_final_container],showfliers=False, patch_artist=True, boxprops={'facecolor': 'none', 'alpha': 0.5})
-    plt.xticks([1, 2], ['initial $l$', 'learned $l$'], fontsize=font_size)
+    plt.grid(True)
+    colors = [[0.4940, 0.1840, 0.5560], [0.8500, 0.3250, 0.0980], [0.9290, 0.6940, 0.1250], [0.9290, 0.6940, 0.1250]]
+    bplot = plt.boxplot([l_init_container, l_container_ofu, l_container_ts, l_final_container],showfliers=False, patch_artist=True, boxprops={'facecolor': 'none', 'alpha': 0.5})
+    plt.xticks([1, 2, 3, 4], ['initial', 'ofu', 'ts', 'our'], fontsize=font_size)
+    plt.title('body length $l$', fontsize=font_size)
     for patch, color in zip(bplot['boxes'], colors):
         patch.set_facecolor(color)
     plt.ylabel('length ($m$)', fontsize=font_size)
@@ -138,9 +208,11 @@ def MonteCarlo():
     x_init_error_container = init_x_error
     x_final_error_container = learned_x_error
     plt.figure()
-    colors = [[0.9290, 0.6940, 0.1250], [0.9290, 0.6940, 0.1250]]
-    bplot = plt.boxplot([x_init_error_container, x_final_error_container],showfliers=False, patch_artist=True, boxprops={'facecolor': 'none', 'alpha': 0.5})
-    plt.xticks([1, 2], ['initial $x^{p}$ error', 'learned $x^{p}$ error'], fontsize=font_size)
+    plt.grid(True)
+    colors = [[0.4940, 0.1840, 0.5560], [0.8500, 0.3250, 0.0980], [0.9290, 0.6940, 0.1250], [0.9290, 0.6940, 0.1250]]
+    bplot = plt.boxplot([x_init_error_container, x_error_container_ofu, x_error_container_ts,  x_final_error_container],showfliers=False, patch_artist=True, boxprops={'facecolor': 'none', 'alpha': 0.5})
+    plt.xticks([1, 2, 3, 4], ['initial', 'ofu', 'ts', 'our'], fontsize=font_size)
+    plt.title('$x^{p}$ error', fontsize=font_size)
     for patch, color in zip(bplot['boxes'], colors):
         patch.set_facecolor(color)
 
@@ -153,9 +225,11 @@ def MonteCarlo():
     y_init_error_container = init_y_error
     y_final_error_container = learned_y_error
     plt.figure()
-    colors = [[0, 0.4470, 0.7410], [0.9290, 0.6940, 0.1250]]
-    bplot = plt.boxplot([y_init_error_container, y_final_error_container],showfliers=False, patch_artist=True, boxprops={'facecolor': 'none', 'alpha': 0.5})
-    plt.xticks([1, 2], ['initial $y^{p}$ error', 'learned $y^{p}$ error'], fontsize=font_size)
+    plt.grid(True)
+    colors = [[0.4940, 0.1840, 0.5560], [0.8500, 0.3250, 0.0980], [0.9290, 0.6940, 0.1250], [0.9290, 0.6940, 0.1250]]
+    bplot = plt.boxplot([y_init_error_container, y_error_container_ofu, y_error_container_ts, y_final_error_container],showfliers=False, patch_artist=True, boxprops={'facecolor': 'none', 'alpha': 0.5})
+    plt.xticks([1, 2, 3, 4], ['initial', 'ofu', 'ts', 'our'], fontsize=font_size)
+    plt.title('$y^{p}$ error', fontsize=font_size)
     for patch, color in zip(bplot['boxes'], colors):
         patch.set_facecolor(color)
 
@@ -221,14 +295,14 @@ def MonteCarlo():
     # calculate the mean and std of last r
     r_mean = np.mean(r_container[:, -1])
     r_std = np.std(r_container[:, -1])
-    print("r_mean: ", r_mean)
-    print("r_std: ", r_std)
+    print("r_mean(ours): ", r_mean)
+    print("r_std(ours): ", r_std)
 
     # calculate the mean and std of last l
     l_mean = np.mean(l_container[:, -1])
     l_std = np.std(l_container[:, -1])
-    print("l_mean: ", l_mean)
-    print("l_std: ", l_std)
+    print("l_mean(ours): ", l_mean)
+    print("l_std(ours): ", l_std)
 
     print("failed to learn: ", totalFail)
     # save data

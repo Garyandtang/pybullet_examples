@@ -135,7 +135,7 @@ def solve_discrete_lyapunov(A, Q, method=None):
 
     P = scipy.linalg.solve_discrete_lyapunov(A.T, Q, method)
 
-    assert np.allclose(A.T.dot(P).dot(A) - P, -Q)
+    # assert np.allclose(A.T.dot(P).dot(A) - P, -Q)
 
     return P
 

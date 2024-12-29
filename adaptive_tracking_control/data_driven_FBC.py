@@ -43,15 +43,19 @@ class LTI:
         self.B_ground_truth = ground_truth_B
         self.A_ground_truth = self.A
 
+    def calculate_K_k(self, A, B):
+        K = -ct.dlqr(A, B, self.Q, self.R)[0]
+        k = -np.linalg.pinv(B) @ self.c
+        return K, k
 
     def system_init(self, fixed_param=False):
         if fixed_param:
             l = 0.15
             r = 0.05
-            ground_truth_l = 0.23
-            ground_truth_r = 0.036
-            # l = 0.23
-            # r = 0.036
+            # ground_truth_l = 0.23
+            # ground_truth_r = 0.036
+            # # l = 0.23
+            # # r = 0.036
         else:
             l = np.random.uniform(0.15, 0.3)
             r = np.random.uniform(0.03, 0.05)

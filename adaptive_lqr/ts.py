@@ -3,12 +3,12 @@
 """
 
 import numpy as np
-import utils
+import adaptive_lqr.utils as utils
 import logging
 import math
 
-from adaptive import AdaptiveMethod
-
+from adaptive_lqr.adaptive import AdaptiveMethod
+from adaptive_tracking_control.data_driven_FBC import evaluation
 
 class TSStrategy(AdaptiveMethod):
     """Adaptive control based on Thompson sampling
@@ -162,7 +162,7 @@ def _main():
 def _main_wheeled_robot():
     from adaptive_tracking_control.main_single_learning import LTI
     lti = LTI(fixed_param=False)
-
+    x_container_init, y_container_init, _, _ = evaluation(lti, 1700, False)
     A = lti.A
     B = lti.B
     K_init = lti.K0
@@ -187,9 +187,17 @@ def _main_wheeled_robot():
                      rls_lam=None)
 
     env.reset(rng)
-    env.prime(1200, K_init, 0.1, rng, lti)
-    for idx in range(500):
-        env.step(rng)
+    env.prime(1200, K_init, 1, rng, lti)
+    lti.K0 = env.learned_K
+    lti.k0 = env.learned_k
+    x_container, y_container, _, _ = evaluation(lti, 1700, False)
+    # plot x y
+    import matplotlib.pyplot as plt
+    plt.figure()
+    plt.plot(x_container_init, y_container_init)
+    plt.plot(x_container, y_container)
+    # plt.legend(['initial', 'learned'])
+    plt.show()
 
 
 if __name__ == '__main__':
