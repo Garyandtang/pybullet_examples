@@ -285,9 +285,9 @@ def _main_wheeled_robot():
     B_star = lti.B_ground_truth
     Q = lti.Q
     R = lti.R
-    lti.print_init_info()
+    # lti.print_init_info()
 
-    lti.print_K_optimal()
+    # lti.print_K_optimal()
     x_container_init, y_container_init,_ ,_ = evaluation(lti, 1700, False)
 
 
@@ -303,16 +303,18 @@ def _main_wheeled_robot():
                       rls_lam=None)
 
     env.reset(rng)
-    env.prime(1200, K_init, 0.1, rng, lti)
+    start = time.time()
+    env.prime(5000, K_init, 1, rng, lti)
+    print("prime time: ", time.time() - start)
     lti.K0 = env.learned_K
     lti.k0 = env.learned_k
     x_container, y_container,_ ,_ = evaluation(lti, 1700, False)
     # plot x y
     import matplotlib.pyplot as plt
     plt.figure()
-    # plt.plot(x_container_init, y_container_init)
+    plt.plot(x_container_init, y_container_init)
     plt.plot(x_container, y_container)
-    # plt.legend(['initial', 'learned'])
+    plt.legend(['initial', 'learned'])
     plt.show()
 
 

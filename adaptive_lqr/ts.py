@@ -6,7 +6,7 @@ import numpy as np
 import adaptive_lqr.utils as utils
 import logging
 import math
-
+import time
 from adaptive_lqr.adaptive import AdaptiveMethod
 from adaptive_tracking_control.data_driven_FBC import evaluation
 
@@ -175,7 +175,7 @@ def _main_wheeled_robot():
     lti.print_K_optimal()
 
     rng = np.random
-
+    start_time = time.time()
     env = TSStrategy(Q=Q,
                      R=R,
                      A_star=A_star,
@@ -187,7 +187,9 @@ def _main_wheeled_robot():
                      rls_lam=None)
 
     env.reset(rng)
-    env.prime(1200, K_init, 1, rng, lti)
+
+    env.prime(1200, K_init, 0.1, rng, lti)
+    print('prime time:', time.time() - start_time)
     lti.K0 = env.learned_K
     lti.k0 = env.learned_k
     x_container, y_container, _, _ = evaluation(lti, 1700, False)
@@ -196,7 +198,7 @@ def _main_wheeled_robot():
     plt.figure()
     plt.plot(x_container_init, y_container_init)
     plt.plot(x_container, y_container)
-    # plt.legend(['initial', 'learned'])
+    plt.legend(['initial', 'learned'])
     plt.show()
 
 

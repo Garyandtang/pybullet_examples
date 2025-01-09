@@ -193,7 +193,7 @@ def simulation(lti, learning=False, variance=0.1):
     data.R = lti.R
     data.A = lti.A
     data.B = lti.B
-    nTraj = 1300
+    nTraj = 2000
     traj_config = {'type': TrajType.CIRCLE,
                    'param': {'start_state': np.zeros((3,)),
                              'linear_vel': lti.twist[0],

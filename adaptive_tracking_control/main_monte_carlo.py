@@ -19,7 +19,8 @@ def MonteCarlo():
     ref_x = ref_state[0, :]
     ref_y = ref_state[1, :]
     totalSim = 50
-    iteration = 5
+    iteration = 3
+    num_of_data = 2000
     y_max = 0.8
     y_min = -0.3
     K0_container = np.zeros((totalSim, iteration + 1))
@@ -80,10 +81,10 @@ def MonteCarlo():
                           actual_error_multiplier=1,
                           rls_lam=None)
         ofu_env.reset(rng)
-        ofu_env.prime(1000, K_init, 0.1, rng, lti)
+        ofu_env.prime(num_of_data, K_init, 0.1, rng, lti)
         A_hat = ofu_env.estimated_A
         B_hat = ofu_env.estimated_B
-        lti_for_evaluation.K0, lti_for_evaluation.k0 = lti.calculate_K_k(A_hat, B_hat)
+        lti_for_evaluation.K0, lti_for_evaluation.k0 = lti.calculate_K_k(lti.A, B_hat)
         r_container_ofu[i], l_container_ofu[i] = ofu_env.estimated_r, ofu_env.estimated_l
         ofu_x_container, ofu_y_container, _ , _= evaluation(lti_for_evaluation, nTraj)
         x_error_container_ofu[i] = np.linalg.norm(ofu_x_container - ref_x)
@@ -100,10 +101,10 @@ def MonteCarlo():
                          actual_error_multiplier=1,
                          rls_lam=None)
         ts_env.reset(rng)
-        ts_env.prime(1300, K_init, 0.1, rng, lti)
+        ts_env.prime(num_of_data, K_init, 0.1, rng, lti)
         A_hat = ts_env.estimated_A
         B_hat = ts_env.estimated_B
-        lti_for_evaluation.K0, lti_for_evaluation.k0 = lti.calculate_K_k(A_hat, B_hat)
+        lti_for_evaluation.K0, lti_for_evaluation.k0 = lti.calculate_K_k(lti.A, B_hat)
         r_container_ts[i], l_container_ts[i] = ts_env.estimated_r, ts_env.estimated_l
         ts_x_container, ts_y_container, _, _ = evaluation(lti_for_evaluation, nTraj)
         x_error_container_ts[i] = np.linalg.norm(ts_x_container - ref_x)
@@ -185,7 +186,7 @@ def MonteCarlo():
     for patch, color in zip(bplot['boxes'], colors):
         patch.set_facecolor(color)
     # save bplot
-    plt.savefig(os.path.join(data_path, "r_boxplot.jpg"))
+    plt.savefig(os.path.join(data_path, "r_boxplot_{}.jpg".format(num_of_data)))
     plt.show()
 
     # box plot initial l and final l
@@ -201,7 +202,7 @@ def MonteCarlo():
         patch.set_facecolor(color)
     plt.ylabel('length ($m$)', fontsize=font_size)
 
-    plt.savefig(os.path.join(data_path, "l_boxplot.jpg"))
+    plt.savefig(os.path.join(data_path, "l_boxplot_{}.jpg".format(num_of_data)))
     plt.show()
 
     # box plot initial x error and final x error
@@ -218,7 +219,7 @@ def MonteCarlo():
 
     plt.ylabel('Mean Square Error ($m$)', fontsize=font_size)
 
-    plt.savefig(os.path.join(data_path, "x_error_boxplot.jpg"))
+    plt.savefig(os.path.join(data_path, "x_error_boxplot_{}.jpg".format(num_of_data)))
     plt.show()
 
     # box plot initial y error and final y error
@@ -234,7 +235,7 @@ def MonteCarlo():
         patch.set_facecolor(color)
 
     plt.ylabel('Mean Square Error ($m$)', fontsize=font_size)
-    plt.savefig(os.path.join(data_path, "y_error_boxplot.jpg"))
+    plt.savefig(os.path.join(data_path, "y_error_boxplot_{}.jpg".format(num_of_data)))
     plt.show()
 
 
