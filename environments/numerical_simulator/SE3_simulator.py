@@ -1,7 +1,7 @@
 import numpy as np
 from manifpy import SE2, SO2, SE2Tangent, SO2Tangent
 from manifpy import SE3, SO3, SE3Tangent, SO3Tangent
-from utils.utils import skew
+from utilsStuff.utils import skew
 
 # SE3 force control simulator
 class SE3Simulator:
