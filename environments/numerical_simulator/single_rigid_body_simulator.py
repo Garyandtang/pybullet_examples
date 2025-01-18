@@ -8,7 +8,7 @@ from planner.SE3_planner import SE3Planner
 class SingleRigidBodySimulator:
     def __init__(self, dt=0.02):
         self.dt = dt
-        self.nState = 13 # x,q,v,w
+        self.nState = 13 # x,q, w, v
         self.nControl = 6 # [f,tau]
         self.curr_state = np.array([0, 0, 0,
                                     0, 0, 0, 1,
@@ -28,22 +28,22 @@ class SingleRigidBodySimulator:
     def step(self, u):
         pos = self.curr_state[0:3]
         quat = self.curr_state[3:3+4]
-        vel = self.curr_state[7:7+3]
-        omega = self.curr_state[10:10+3]
+        omega = self.curr_state[7:7+3]
+        vel = self.curr_state[10:10+3]
         twist = np.hstack([vel, omega])
 
         tau = u[0:3]
         f = u[3:3+3]
 
         curr_SE3 = SE3(pos, quat)
-        next_SE3 = curr_SE3 * SE3Tangent(twist * self.dt).exp()
+        next_SE3 = curr_SE3 + SE3Tangent(twist * self.dt)
         next_pos = next_SE3.translation()
         next_quat = next_SE3.quat()
         omega_dot = np.linalg.inv(self.I).dot(tau - skew(omega).dot(self.I).dot(omega))
         vel_dot = f / self.m - skew(omega).dot(vel)
         next_omega = omega + omega_dot * self.dt
         next_vel = vel + vel_dot * self.dt
-        next_state = np.hstack([next_pos, next_quat, next_vel, next_omega])
+        next_state = np.hstack([next_pos, next_quat, next_omega, next_vel])
         self.curr_state = next_state
         return next_state
 
@@ -54,8 +54,9 @@ def test_simulator():
     simulator = SingleRigidBodySimulator(dt)
     init_state = np.array([0, 0, 0,
                             0, 0, 0, 1,
-                            2, 0, 0.2,
-                            0, 0, 1])
+                           0, 0, 1,
+                            2, 0, 0.2]
+                            )
     simulator.set_init_state(init_state)
     control = np.array([0, 0, 0, 0, 0, 0])
     print(simulator.step(control))
