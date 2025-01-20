@@ -1,17 +1,12 @@
 import control as ct
 import numpy as np
-from lie_utils import *
+from adaptive_control_SE3.lie_utils import *
 class LinearSE3ErrorDynamics:
     def __init__(self, fixed_param=False):
         self.system_init(fixed_param)
         self.controller_init()
         # self.get_ground_truth_control()
 
-
-    def calculate_K_k(self, A, B):
-        K = -ct.dlqr(A, B, self.Q, self.R)[0]
-        k = -np.linalg.pinv(B) @ self.c
-        return K, k
 
     def system_init(self, fixed_param=False):
         if fixed_param:
@@ -32,16 +27,19 @@ class LinearSE3ErrorDynamics:
         self.twist = np.hstack([self.v, self.w])
 
         self.A = np.zeros((12, 12))
+        Ac = np.zeros((12, 12))
         H = invJ @ smallAdjointInv(self.w, self.v) @ J + invJ @ gamma_right(self.I, self.m, self.w, self.v)
-        self.A[0:6, 0:6] = -smallAdjoint(self.w, self.v)
-        self.A[0:6, 6:12] = np.eye(6)
-        self.A[6:12, 6:12] = H
+        Ac[0:6, 0:6] = -smallAdjoint(self.w, self.v)
+        Ac[0:6, 6:12] = np.eye(6)
+        Ac[6:12, 6:12] = H
+        self.A = np.eye(12) + Ac * self.dt
 
         self.B = np.zeros((12, 6))
-        self.B[6:12, :] = invJ
+        self.B[6:12, :] = invJ * self.dt
 
-        self.Q = np.eye(12) * 1000
-        self.R = np.eye(6) * 1
+        self.Q = np.diag(np.array([10, 10, 10, 1, 1, 1, 20, 20, 20, 1, 1, 1])) * 10
+        self.R = np.eye(6) * 1e-5
+
 
 
 
