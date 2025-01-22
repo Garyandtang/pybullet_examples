@@ -38,11 +38,13 @@ class SingleRigidBodySimulator:
         tau = u[0:3]
         f = u[3:3+3]
 
+
         curr_SE3 = SE3(pos, quat)
         next_SE3 = curr_SE3 + SE3Tangent(twist * self.dt)
         next_pos = next_SE3.translation()
         next_quat = next_SE3.quat()
         omega_dot = np.linalg.inv(self.I).dot(tau - skew(omega).dot(self.I).dot(omega))
+        # todo check this
         vel_dot = f / self.m #- skew(omega).dot(vel)
         next_omega = omega + omega_dot * self.dt
         next_vel = vel + vel_dot * self.dt
@@ -79,20 +81,25 @@ def test_simulator():
     plt.show()
 
 def test_tracking_ctrl():
+    linear_vel = np.array([0, 0, 0.2])
+    angular_vel = np.array([1, 1, 0])
     config = {'type': TrajType.CONSTANT,
               'param': {'start_state': np.array([0, 0, 0, 0, 0, 0, 1]),
-                        'linear_vel': np.array([2, 0, 0.2]),
-                        'angular_vel': np.array([0, 0, 1]),
+                        'linear_vel': linear_vel,
+                        'angular_vel': angular_vel,
                         'dt': 0.02,
-                        'nTraj': 300}}
+                        'nTraj': 3000}}
     planner = SE3Planner(config)
     ref_SE3, ref_twist, dt = planner.generate_constant_traj(config['param'])
     print(ref_SE3.shape)
     simulator = SingleRigidBodySimulator(dt)
-    init_state = np.array([0.4, 0, 0,
-                            0, 0, 0, 1,
-                            0, 0, 1,
-                            2, 0, 0.2])
+    init_pos = np.array([0.4, 0, 0])
+    init_quat = np.array([0, 0, 0, 1])
+    init_state = np.hstack([init_pos, init_quat, angular_vel, linear_vel])
+    # init_state = np.array([0.4, 0, 0,
+    #                         0, 0, 0, 1,
+    #                         0, 0, 0,
+    #                         0, 0, 0])
     simulator.set_init_state(init_state)
 
     # container
@@ -104,6 +111,8 @@ def test_tracking_ctrl():
     # ctrl
     from adaptive_control_SE3.linear_se3_error_dynamics import LinearSE3ErrorDynamics
     lti = LinearSE3ErrorDynamics()
+    lti.set_vel(linear_vel, angular_vel)
+    lti.reset()
     K = lti.K0
     print(K)
     for i in range(np.size(ref_SE3, 1)):

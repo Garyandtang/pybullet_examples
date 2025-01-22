@@ -52,7 +52,14 @@ class LinearSE3ErrorDynamics:
         self.K_ini = self.K0
         self.B_ini = self.B
 
+    def set_vel(self, v, w):
+        self.v = v
+        self.w = w
+        self.twist = np.hstack([v, w])
 
+    def reset(self):
+        self.system_init()
+        self.controller_init()
 def evaluation(isPlot=False):
     config = {'type': TrajType.CONSTANT,
               'param': {'start_state': np.array([0, 0, 0, 0, 0, 0, 1]),
