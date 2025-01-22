@@ -5,7 +5,7 @@ from utilsStuff.utils import skew
 from planner.SE3_planner import SE3Planner
 from utilsStuff.enum_class import TrajType
 import matplotlib.pyplot as plt
-from adaptive_control_SE3.linear_se3_error_dynamics import LinearSE3ErrorDynamics
+# from adaptive_control_SE3.linear_se3_error_dynamics import LinearSE3ErrorDynamics
 
 
 class SingleRigidBodySimulator:
@@ -102,6 +102,7 @@ def test_tracking_ctrl():
     error_container = np.zeros((12, np.size(ref_SE3, 1)))
 
     # ctrl
+    from adaptive_control_SE3.linear_se3_error_dynamics import LinearSE3ErrorDynamics
     lti = LinearSE3ErrorDynamics()
     K = lti.K0
     print(K)

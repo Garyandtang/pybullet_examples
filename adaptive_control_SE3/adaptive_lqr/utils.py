@@ -57,7 +57,7 @@ def pd_inv_sqrt(P):
     assert P.shape[0] == P.shape[1]
     w, v = np.linalg.eigh(P)
     TOL = 1e-8
-    # assert (w >= TOL).all()
+    assert (w >= TOL).all()
     return v.dot(np.diag(1/np.sqrt(w))).dot(v.T)
 
 
