@@ -8,6 +8,8 @@ from manifpy import SE3, SO3, SE3Tangent, SO3Tangent
 import matplotlib.pyplot as plt
 class LinearSE3ErrorDynamics:
     def __init__(self, fixed_param=True):
+        self.v = np.array([2, 0, 0.2])
+        self.w = np.array([0, 0, 1])
         self.system_init(fixed_param)
         self.controller_init()
         # self.get_ground_truth_control()
@@ -19,17 +21,14 @@ class LinearSE3ErrorDynamics:
             self.m = 1
         else:
             self.I = np.eye(3)
-            self.m = 2.0
+            self.m = 1.0
         # generalized inertia matrix
         J = np.zeros((6, 6))
         J[0:3, 0:3] = self.I
         J[3:6, 3:6] = self.m * np.eye(3)
         invJ = np.linalg.inv(J)
 
-        self.v = np.array([2, 0, 0.2])
-        self.w = np.array([0, 0, 1])
         self.dt = 0.02
-        self.twist = np.hstack([self.v, self.w])
 
         self.A = np.zeros((12, 12))
         Ac = np.zeros((12, 12))
@@ -55,25 +54,26 @@ class LinearSE3ErrorDynamics:
     def set_vel(self, v, w):
         self.v = v
         self.w = w
-        self.twist = np.hstack([v, w])
 
     def reset(self):
         self.system_init()
         self.controller_init()
 def evaluation(isPlot=False):
+    linear_vel = np.array([2, 1, 0.4])
+    angular_vel = np.array([1, 0, 1])
     config = {'type': TrajType.CONSTANT,
               'param': {'start_state': np.array([0, 0, 0, 0, 0, 0, 1]),
-                        'linear_vel': np.array([2, 0, 0.2]),
-                        'angular_vel': np.array([0, 0, 1]),
+                        'linear_vel': linear_vel,
+                        'angular_vel': angular_vel,
                         'dt': 0.02,
-                        'nTraj': 170}}
+                        'nTraj': 300}}
     planner = SE3Planner(config)
     ref_SE3, ref_twist, dt = planner.get_traj()
     simulator = SingleRigidBodySimulator(dt)
-    init_state = np.array([0, 0, 0,
-                           0, 0, 0, 1,
-                           0, 0, 1,
-                           2, 0, 0.2])
+    init_pos = np.array([0.4, 0, 0])
+    init_quat = np.array([0, 0, 0, 1])
+    init_state = np.hstack([init_pos, init_quat, np.zeros(6)])
+
     simulator.set_init_state(init_state)
 
     # container
@@ -84,7 +84,11 @@ def evaluation(isPlot=False):
 
     # ctrl
     lti = LinearSE3ErrorDynamics()
+    print(lti.K0)
+    lti.set_vel(linear_vel, angular_vel)
+    lti.reset()
     K = lti.K0
+    print("-------------------")
     print(K)
     for i in range(np.size(ref_SE3, 1)):
         pos = simulator.curr_state[0:3]
@@ -121,5 +125,5 @@ def evaluation(isPlot=False):
 
 
 if __name__ == '__main__':
-    evaluation()
+    evaluation(True)
 
