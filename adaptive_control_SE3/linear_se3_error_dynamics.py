@@ -9,15 +9,16 @@ from manifpy import SE3, SO3, SE3Tangent, SO3Tangent
 import matplotlib.pyplot as plt
 class LinearSE3ErrorDynamics:
     def __init__(self, fixed_param=False):
+        self.fixed_param = fixed_param
         self.v = np.array([2, 0, 0.2])
         self.w = np.array([0, 0, 1])
-        self.system_init(fixed_param)
+        self.system_init()
         self.controller_init()
         # self.get_ground_truth_control()
 
 
-    def system_init(self, fixed_param=False):
-        if fixed_param:
+    def system_init(self):
+        if self.fixed_param:
             self.I = np.array([[1, 0.2, 0.1],
                                [0.2, 1, 0.2],
                                [0.1, 0.2, 1]])
@@ -33,7 +34,7 @@ class LinearSE3ErrorDynamics:
         # reference control to counteract Coriolis force
         self.ud = np.zeros(6)
         self.ud[0:3] = np.array([0, 0, 0])
-        self.ud[3:6] = -self.m * skew(self.w).dot(self.v)
+        self.ud[3:6] = self.m * skew(self.w).dot(self.v)
         # generalized inertia matrix
         J = np.zeros((6, 6))
         J[0:3, 0:3] = self.I
@@ -114,7 +115,7 @@ def evaluation(isPlot=False):
         x[0:3] = x_log[3: 3 + 3]  # log(R)
         x[3:6] = x_log[0: 0 + 3]  # log(p)
         x[6:12] = curr_omega_vel - ref_omega_vel
-        u = K.dot(x)
+        u = K.dot(x) + lti.ud
         ctrl_container[:, i] = u
         simulator.step(u)
 

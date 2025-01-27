@@ -176,8 +176,8 @@ class AdaptiveMethod(ABC):
             x[0:3] = x_log[3: 3 + 3]
             x[3:6] = x_log[0: 0 + 3]
             x[6:12] = curr_omega_vel - ref_omega_vel
-            u = K.dot(x) - lti.ud + excitation * rng.normal(size=(self._p,))
-            next_state = simulator.step(u)
+            u = K.dot(x) + excitation * rng.normal(size=(self._p,)) + lti.ud
+            next_state = simulator.step(u - lti.ud)
             self._state_history.append(x)
             self._input_history.append(u)
             next_SE3_ref = ref_SE3[:, i+1]
@@ -205,11 +205,17 @@ class AdaptiveMethod(ABC):
                 np.array(self._input_history),
                 np.array(self._transition_history),
                 rng)
-
+        print("Bhat: ", Bhat)
         I_hat_inv = Bhat[6:9, 0:3] / dt
         I_hat = np.linalg.inv(I_hat_inv)
         I_hat = (I_hat + I_hat.T) / 2
         print("I_hat: ", I_hat)
+        m_hat_inv = Bhat[9:12, 3:6] / dt
+        diag_value = np.diag(np.linalg.inv(m_hat_inv))
+        m_hat = np.mean(diag_value)
+        print("m_hat: ", m_hat)
+
+
 
         eps_A = np.linalg.norm(Ahat - self._A_star, ord=2)
         eps_B = np.linalg.norm(Bhat - self._B_star, ord=2)
@@ -224,6 +230,8 @@ class AdaptiveMethod(ABC):
         self._state_cur = np.zeros_like(self._state_cur)
 
         self._has_primed = True
+        self.Ihat = I_hat
+        # self.mhat =
 
 
     def _get_rng(self, rng):
