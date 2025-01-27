@@ -108,7 +108,7 @@ def _main_se3():
                         rls_lam=None)
     env.reset(rng)
     start_time = time.time()
-    env.prime(2000, K_init, 5, rng, lti)
+    env.prime(200, K_init, 5, rng, lti)
     print('prime time:', time.time() - start_time)
 
 

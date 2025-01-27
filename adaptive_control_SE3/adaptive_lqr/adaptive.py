@@ -230,8 +230,8 @@ class AdaptiveMethod(ABC):
         self._state_cur = np.zeros_like(self._state_cur)
 
         self._has_primed = True
-        self.Ihat = I_hat
-        # self.mhat =
+        self.I_hat = I_hat
+        self.m_hat = m_hat
 
 
     def _get_rng(self, rng):

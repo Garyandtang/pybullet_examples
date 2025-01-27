@@ -17,17 +17,18 @@ class LinearSE3ErrorDynamics:
         # self.get_ground_truth_control()
 
 
-    def system_init(self):
-        if self.fixed_param:
-            self.I = np.array([[1, 0.2, 0.1],
+    def system_init(self, I = 2 * np.array([[1, 0.2, 0.1],
                                [0.2, 1, 0.2],
-                               [0.1, 0.2, 1]])
-            self.m = 2
+                               [0.1, 0.2, 1]]), m = 2 * 2):
+        if self.fixed_param:
+
+            self.I = I
+            self.m = m
         else:
             self.I = np.array([[1, 0.2, 0.1],
                                [0.2, 1, 0.2],
                                [0.1, 0.2, 1]]) + 0.1 * generate_random_positive_definite_matrix(3)
-            self.m = 2.0 + 0.5 * np.random.rand()
+            self.m = 2.0 + 1 * np.random.rand()
 
         assert is_positive_definite(self.I)
         assert self.m > 0
@@ -68,12 +69,16 @@ class LinearSE3ErrorDynamics:
         self.v = v
         self.w = w
 
-    def reset(self):
-        self.system_init()
+    def reset(self, fixed_param, I, m):
+        self.fixed_param = fixed_param
+        self.system_init(I, m)
         self.controller_init()
-def evaluation(isPlot=False):
-    linear_vel = np.array([2, 1, 0.4])
-    angular_vel = np.array([1, 0, 1])
+
+    def update_controller(self, K):
+        self.K0 = K
+def evaluation(isPlot=False, lti=LinearSE3ErrorDynamics(True), config=None):
+    linear_vel = lti.v
+    angular_vel = lti.w
     config = {'type': TrajType.CONSTANT,
               'param': {'start_state': np.array([0, 0, 0, 0, 0, 0, 1]),
                         'linear_vel': linear_vel,
@@ -83,9 +88,10 @@ def evaluation(isPlot=False):
     planner = SE3Planner(config)
     ref_SE3, ref_twist, dt = planner.get_traj()
     simulator = SingleRigidBodySimulator(dt)
-    init_pos = np.array([0.4, 0, 0])
+    init_pos = np.array([0, 0, 0])
     init_quat = np.array([0, 0, 0, 1])
-    init_state = np.hstack([init_pos, init_quat, np.zeros(6)])
+    # init_state = np.hstack([init_pos, init_quat, np.zeros(6)])
+    init_state = np.hstack([init_pos, init_quat, angular_vel, linear_vel])
 
     simulator.set_init_state(init_state)
 
@@ -93,13 +99,7 @@ def evaluation(isPlot=False):
     state_container = np.zeros((13, np.size(ref_SE3, 1)))
     state_container[:, 0] = init_state
     ctrl_container = np.zeros((6, np.size(ref_SE3, 1)))
-    error_container = np.zeros((12, np.size(ref_SE3, 1)))
 
-    # ctrl
-    lti = LinearSE3ErrorDynamics()
-    lti.set_vel(linear_vel, angular_vel)
-    lti.reset()
-    K = lti.K0
     for i in range(np.size(ref_SE3, 1)):
         pos = simulator.curr_state[0:3]
         quat = simulator.curr_state[3:3 + 4]
@@ -115,7 +115,7 @@ def evaluation(isPlot=False):
         x[0:3] = x_log[3: 3 + 3]  # log(R)
         x[3:6] = x_log[0: 0 + 3]  # log(p)
         x[6:12] = curr_omega_vel - ref_omega_vel
-        u = K.dot(x) + lti.ud
+        u = lti.K0.dot(x) + lti.ud
         ctrl_container[:, i] = u
         simulator.step(u)
 
@@ -129,7 +129,7 @@ def evaluation(isPlot=False):
         ax.set_zlabel('Z')
         plt.show()
 
-    return state_container
+    return state_container, ctrl_container
 
 
 

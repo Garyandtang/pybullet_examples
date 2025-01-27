@@ -18,7 +18,7 @@ def MonteCarlo():
     ref_state, ref_control, dt = traj_gen.get_traj()
     ref_x = ref_state[0, :]
     ref_y = ref_state[1, :]
-    totalSim = 50
+    totalSim = 5
     iteration = 3
     num_of_data = 2000
     y_max = 0.8
