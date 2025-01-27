@@ -10,11 +10,12 @@ import scipy.linalg
 import logging
 import time
 import cvxpy as cvx
+from scipy.linalg import lu
 
 import adaptive_lqr.utils as utils
 
-from adaptive_lqr.adaptive import AdaptiveMethod
-from adaptive_tracking_control.main_single_learning import LTI, evaluation
+from adaptive_control_SE3.adaptive_lqr.adaptive import AdaptiveMethod
+
 
 
 def function_value(Q, R, A, B):
@@ -275,7 +276,7 @@ def _main():
     print(Bcur)
 
 def _main_wheeled_robot():
-
+    from adaptive_tracking_control.main_single_learning import LTI, evaluation
     lti = LTI(fixed_param=False)
 
     A = lti.A
@@ -317,8 +318,33 @@ def _main_wheeled_robot():
     plt.legend(['initial', 'learned'])
     plt.show()
 
+def _main_se3():
+    from adaptive_control_SE3.linear_se3_error_dynamics import LinearSE3ErrorDynamics, evaluation
+    lti = LinearSE3ErrorDynamics()
+    A = lti.A
+    B = lti.B
+    Q = lti.Q
+    R = lti.R
+    K_init = lti.K0
+    print("A: ", A)
+    print("B: ", B)
+    #
+    init_state_container = evaluation()
 
-    print(1)
+    rng = np.random
+    env = OFUStrategy(Q=Q,
+                      R=R,
+                      A_star=A,
+                      B_star=B,
+                      sigma_w=0,
+                      reg=1e-5,
+                      actual_error_multiplier=1,
+                      rls_lam=None)
+
+    env.reset(rng)
+    start_time = time.time()
+    env.prime(1200, K_init, 1, rng, lti)
+    print('prime time:', time.time() - start_time)
 
 def _main():
     import examples
@@ -350,5 +376,5 @@ def _main():
 if __name__ == '__main__':
     logging.basicConfig(level=logging.INFO)
     np.set_printoptions(linewidth=200)
-    _main_wheeled_robot()
+    _main_se3()
 

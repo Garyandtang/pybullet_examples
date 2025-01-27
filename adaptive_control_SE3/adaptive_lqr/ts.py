@@ -190,7 +190,7 @@ def _main_wheeled_robot():
 
     env.reset(rng)
 
-    env.prime(1200, K_init, 0.1, rng, lti)
+    env.prime(6000, K_init, 10, rng, lti)
     print('prime time:', time.time() - start_time)
     lti.K0 = env.learned_K
     lti.k0 = env.learned_k
@@ -228,7 +228,7 @@ def _main_se3():
                         rls_lam=None)
     env.reset(rng)
     start_time = time.time()
-    env.prime(1200, K_init, 10, rng, lti)
+    env.prime(1200, K_init, 5, rng, lti)
     print('prime time:', time.time() - start_time)
 
 

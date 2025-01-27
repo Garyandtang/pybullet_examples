@@ -18,9 +18,13 @@ class SingleRigidBodySimulator:
                                     0, 0, 0,
                                     0, 0, 0])
 
-        self.m = 1.0
-        self.I = np.eye(3)
+        self.m = 1.0 * 2
+        self.I = np.eye(3) * 6
         self.g = np.array([0, 0, 0])
+
+        self.I = np.array([[1, 0.2, 0.1],
+                            [0.2, 1, 0.2],
+                            [0.1, 0.2, 1]])
 
     def set_init_state(self, init_state):
         quat = init_state[3:3+4]
@@ -45,13 +49,15 @@ class SingleRigidBodySimulator:
         next_quat = next_SE3.quat()
         omega_dot = np.linalg.inv(self.I).dot(tau - skew(omega).dot(self.I).dot(omega))
         # todo check this
-        vel_dot = f / self.m #- skew(omega).dot(vel)
+        vel_dot = f / self.m - skew(omega).dot(vel)
         next_omega = omega + omega_dot * self.dt
         next_vel = vel + vel_dot * self.dt
         next_state = np.hstack([next_pos, next_quat, next_omega, next_vel])
         self.curr_state = next_state
         return next_state
 
+    def get_true_I_m(self):
+        return self.I, self.m
 
 
 def test_simulator():

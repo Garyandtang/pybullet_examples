@@ -11,6 +11,7 @@ import adaptive_lqr.utils as utils
 import logging
 import time
 import itertools as it
+from scipy.linalg import lu
 
 from abc import ABC, abstractmethod
 from adaptive_tracking_control.data_driven_FBC import LTI, calculate_r_l,projection_B
@@ -175,7 +176,7 @@ class AdaptiveMethod(ABC):
             x[0:3] = x_log[3: 3 + 3]
             x[3:6] = x_log[0: 0 + 3]
             x[6:12] = curr_omega_vel - ref_omega_vel
-            u = K.dot(x) + excitation * rng.normal(size=(self._p,))
+            u = K.dot(x) - lti.ud + excitation * rng.normal(size=(self._p,))
             next_state = simulator.step(u)
             self._state_history.append(x)
             self._input_history.append(u)
@@ -204,8 +205,11 @@ class AdaptiveMethod(ABC):
                 np.array(self._input_history),
                 np.array(self._transition_history),
                 rng)
-        print("A_hat: ", Ahat)
-        print("B_hat: ", Bhat)
+
+        I_hat_inv = Bhat[6:9, 0:3] / dt
+        I_hat = np.linalg.inv(I_hat_inv)
+        I_hat = (I_hat + I_hat.T) / 2
+        print("I_hat: ", I_hat)
 
         eps_A = np.linalg.norm(Ahat - self._A_star, ord=2)
         eps_B = np.linalg.norm(Bhat - self._B_star, ord=2)

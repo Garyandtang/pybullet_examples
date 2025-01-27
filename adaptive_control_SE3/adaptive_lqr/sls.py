@@ -13,9 +13,10 @@ import utils
 import logging
 import math
 import scipy.linalg
+import time
 
 from abc import ABC, abstractmethod
-from adaptive import AdaptiveMethod
+from adaptive_control_SE3.adaptive_lqr.adaptive import AdaptiveMethod
 from adaptive_tracking_control.main_single_learning import LTI
 
 
@@ -722,8 +723,39 @@ def _main_wheeled_robot():
     for idx in range(500):
         env.step(rng)
 
+def _main_se3():
+    from adaptive_control_SE3.linear_se3_error_dynamics import LinearSE3ErrorDynamics, evaluation
+    lti = LinearSE3ErrorDynamics()
+    A = lti.A
+    B = lti.B
+    Q = lti.Q
+    R = lti.R
+    K_init = lti.K0
+    print("A: ", A)
+    print("B: ", B)
+    #
+    init_state_container = evaluation()
+
+    rng = np.random
+    env = SLS_FIRStrategy(Q=Q,
+                          R=R,
+                          A_star=A,
+                          B_star=B,
+                          sigma_w=0,
+                          sigma_explore=0,
+                          reg=1e-5,
+                          epoch_multiplier=10,
+                          truncation_length=12,
+                          actual_error_multiplier=1,
+                          rls_lam=None)
+
+    env.reset(rng)
+    start_time = time.time()
+    env.prime(120, K_init, 1, rng, lti)
+    print('prime time:', time.time() - start_time)
+
 if __name__ == '__main__':
     logging.basicConfig(level=logging.DEBUG)
     np.set_printoptions(linewidth=200)
-    _main_wheeled_robot()
+    _main_se3()
 

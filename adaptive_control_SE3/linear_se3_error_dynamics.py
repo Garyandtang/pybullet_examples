@@ -3,11 +3,12 @@ import numpy as np
 from adaptive_control_SE3.lie_utils import *
 from planner.SE3_planner import SE3Planner
 from utilsStuff.enum_class import TrajType
+from utilsStuff.utils import generate_random_positive_definite_matrix, is_positive_definite
 from environments.numerical_simulator.single_rigid_body_simulator import SingleRigidBodySimulator
 from manifpy import SE3, SO3, SE3Tangent, SO3Tangent
 import matplotlib.pyplot as plt
 class LinearSE3ErrorDynamics:
-    def __init__(self, fixed_param=True):
+    def __init__(self, fixed_param=False):
         self.v = np.array([2, 0, 0.2])
         self.w = np.array([0, 0, 1])
         self.system_init(fixed_param)
@@ -15,13 +16,24 @@ class LinearSE3ErrorDynamics:
         # self.get_ground_truth_control()
 
 
-    def system_init(self, fixed_param=True):
+    def system_init(self, fixed_param=False):
         if fixed_param:
-            self.I = np.eye(3)
-            self.m = 1
+            self.I = np.array([[1, 0.2, 0.1],
+                               [0.2, 1, 0.2],
+                               [0.1, 0.2, 1]])
+            self.m = 2
         else:
-            self.I = np.eye(3)
-            self.m = 1.0
+            self.I = np.array([[1, 0.2, 0.1],
+                               [0.2, 1, 0.2],
+                               [0.1, 0.2, 1]]) + 0.1 * generate_random_positive_definite_matrix(3)
+            self.m = 2.0 + 0.5 * np.random.rand()
+
+        assert is_positive_definite(self.I)
+        assert self.m > 0
+        # reference control to counteract Coriolis force
+        self.ud = np.zeros(6)
+        self.ud[0:3] = np.array([0, 0, 0])
+        self.ud[3:6] = -self.m * skew(self.w).dot(self.v)
         # generalized inertia matrix
         J = np.zeros((6, 6))
         J[0:3, 0:3] = self.I
@@ -84,12 +96,9 @@ def evaluation(isPlot=False):
 
     # ctrl
     lti = LinearSE3ErrorDynamics()
-    print(lti.K0)
     lti.set_vel(linear_vel, angular_vel)
     lti.reset()
     K = lti.K0
-    print("-------------------")
-    print(K)
     for i in range(np.size(ref_SE3, 1)):
         pos = simulator.curr_state[0:3]
         quat = simulator.curr_state[3:3 + 4]
@@ -102,8 +111,8 @@ def evaluation(isPlot=False):
 
         x = np.zeros(12)
         x_log = curr_SE3_ref.between(curr_SE3).log().coeffs()
-        x[0:3] = x_log[3: 3 + 3]
-        x[3:6] = x_log[0: 0 + 3]
+        x[0:3] = x_log[3: 3 + 3]  # log(R)
+        x[3:6] = x_log[0: 0 + 3]  # log(p)
         x[6:12] = curr_omega_vel - ref_omega_vel
         u = K.dot(x)
         ctrl_container[:, i] = u
