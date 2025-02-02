@@ -12,6 +12,7 @@ import time
 from scipy.spatial.transform import Rotation  # 直接导入 Rotation
 
 def single_test():
+    # simulator setup
     init_pos = np.array([0.4, 0, 0])
     init_quat = np.array([0, 0, 0, 1])
     init_w = np.array([0, 0, 0])
@@ -19,16 +20,33 @@ def single_test():
     init_state = np.hstack([init_pos, init_quat, init_w, init_v])
     robot = SingleRigidBodySimulator()
     I_star, m_star = robot.get_true_I_m()
-    lti = LinearSE3ErrorDynamics(fixed_param=True)
+
+    # reference trajectory setup
+    v = np.array([2, 0, 0.2])
+    w = np.array([0, 0, 1])
     config = {'type': TrajType.CONSTANT,
               'param': {'start_state': np.array([0, 0, 0, 0, 0, 0, 1]),
-                        'linear_vel': lti.v,
-                        'angular_vel': lti.w,
+                        'linear_vel': v,
+                        'angular_vel': w,
                         'dt': 0.02,
                         'nTraj': 301}}
+
     planner = SE3Planner(config)
     ref_SE3, ref_twist, dt = planner.get_traj()
+
+
+    # linear system setup
+    lti_config = {'fixed_param': True,
+                  'I': 2 * I_star,
+                  'm': 2 * m_star,
+                  'v': v,
+                  'w': w}
+
+    lti = LinearSE3ErrorDynamics(lti_config)
+
     init_traj, _ = evaluation(False, lti, config, init_state)
+
+    # adaptive control setup
     A = lti.A
     B = lti.B
     Q = lti.Q
@@ -47,7 +65,12 @@ def single_test():
     ourEnv.prime(1500, lti.K0, 5, rng, lti)
     I_hat = ourEnv.I_hat
     m_hat = ourEnv.m_hat
-    lti.reset(fixed_param=True, I=I_hat, m=m_hat)
+    lti_config = {'fixed_param': True,
+                    'I': I_hat,
+                    'm': m_hat,
+                    'v': v,
+                    'w': w}
+    lti.reset(lti_config)
     adaptive_traj, _ = evaluation(False, lti, config, init_state)
 
     # Function to plot coordinate frames

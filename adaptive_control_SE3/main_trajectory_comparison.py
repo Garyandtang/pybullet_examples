@@ -16,17 +16,27 @@ from scipy.spatial.transform import Rotation  # 直接导入 Rotation
 def trajectory_comparison():
     data_size = 2000
     exitaiton = 50
-    robot = SingleRigidBodySimulator()
-    I_star, m_star = robot.get_true_I_m()
-    lti = LinearSE3ErrorDynamics(fixed_param=True)
+    v = np.array([2, 0, 0.2])
+    w = np.array([0, 0, 1])
+    # reference trajectory setup
     config = {'type': TrajType.CONSTANT,
               'param': {'start_state': np.array([0, 0, 0, 0, 0, 0, 1]),
-                        'linear_vel': lti.v,
-                        'angular_vel': lti.w,
+                        'linear_vel': v,
+                        'angular_vel': w,
                         'dt': 0.02,
                         'nTraj': 300}}
     planner = SE3Planner(config)
     ref_SE3, ref_twist, dt = planner.get_traj()
+    robot = SingleRigidBodySimulator()
+    I_star, m_star = robot.get_true_I_m()
+    lti_config = {'fixed_param': True,
+                    'I': 1.1 * I_star,
+                    'm': 2 * m_star,
+                    'v': v,
+                    'w': w}
+
+    lti = LinearSE3ErrorDynamics(lti_config)
+
     init_traj, _ = evaluation(False, lti, config)
     A = lti.A
     B = lti.B
@@ -46,10 +56,15 @@ def trajectory_comparison():
     ourEnv.prime(data_size, lti.K0, exitaiton, rng, lti)
     I_hat = ourEnv.I_hat
     m_hat = ourEnv.m_hat
-    lti.reset(fixed_param=True, I=I_hat, m=m_hat)
+    update_lti_config = {'fixed_param': True,
+                    'I': I_hat,
+                    'm': m_hat,
+                    'v': v,
+                    'w': w}
+    lti.reset(update_lti_config)
     adaptive_traj, _ = evaluation(False, lti, config)
 
-    lti = LinearSE3ErrorDynamics(fixed_param=True)
+    lti = LinearSE3ErrorDynamics(lti_config)
     A = lti.A
     B = lti.B
     Q = lti.Q
@@ -69,7 +84,7 @@ def trajectory_comparison():
     lti.update_controller(K)
     ofu_traj, _ = evaluation(False, lti, config)
 
-    lti = LinearSE3ErrorDynamics(fixed_param=True)
+    lti = LinearSE3ErrorDynamics(lti_config)
     A = lti.A
     B = lti.B
     Q = lti.Q

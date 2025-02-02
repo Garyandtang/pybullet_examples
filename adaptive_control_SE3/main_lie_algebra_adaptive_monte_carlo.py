@@ -23,7 +23,12 @@ def MonteCarloSimulation():
         for sim in range(totalSim):
             start_time = time.time()
             data_size = step_vector[i]
-            lti = LinearSE3ErrorDynamics(fixed_param=False)
+            lti_config = {'fixed_param': False,
+                            'I': I_star,
+                            'm': m_star,
+                            'v': np.array([2, 0, 0.2]),
+                            'w': np.array([0, 0, 1])}
+            lti = LinearSE3ErrorDynamics(lti_config)
             if data_size == 0:
                 I_hat = lti.I
                 m_hat = lti.m

@@ -255,68 +255,7 @@ class OFUStrategy(AdaptiveMethod):
         return self._current_K.dot(state)
 
 
-def _main():
-    import examples
-    A_star, B_star = examples.unstable_laplacian_dynamics()
 
-    # perturb Ahat, Bhat
-    eps_A = 0.1
-    eps_B = 0.1
-    Ahat = utils.sample_2_to_2_ball(Ahat, eps_A)
-    Bhat = utils.sample_2_to_2_ball(Bhat, eps_B)
-
-    Q = 1e-3 * np.eye(3)
-    R = np.eye(3)
-
-    Acur, Bcur = ofu_pgd(Q, R, Ahat, Bhat, eps_A, eps_B, step_size=1, max_iters=1000)
-
-    print("Acur")
-    print(Acur)
-    print("Bcur")
-    print(Bcur)
-
-def _main_wheeled_robot():
-    from adaptive_tracking_control.main_single_learning import LTI, evaluation
-    lti = LTI(fixed_param=False)
-
-    A = lti.A
-    B = lti.B
-    K_init = lti.K0
-    A_star = lti.A_ground_truth
-    B_star = lti.B_ground_truth
-    Q = lti.Q
-    R = lti.R
-    # lti.print_init_info()
-
-    # lti.print_K_optimal()
-    x_container_init, y_container_init,_ ,_ = evaluation(lti, 1700, False)
-
-
-    rng = np.random
-
-    env = OFUStrategy(Q=Q,
-                      R=R,
-                      A_star=A_star,
-                      B_star=B_star,
-                      sigma_w=0,
-                      reg=1e-5,
-                      actual_error_multiplier=1,
-                      rls_lam=None)
-
-    env.reset(rng)
-    start = time.time()
-    env.prime(5000, K_init, 1, rng, lti)
-    print("prime time: ", time.time() - start)
-    lti.K0 = env.learned_K
-    lti.k0 = env.learned_k
-    x_container, y_container,_ ,_ = evaluation(lti, 1700, False)
-    # plot x y
-    import matplotlib.pyplot as plt
-    plt.figure()
-    plt.plot(x_container_init, y_container_init)
-    plt.plot(x_container, y_container)
-    plt.legend(['initial', 'learned'])
-    plt.show()
 
 def _main_se3():
     from adaptive_control_SE3.linear_se3_error_dynamics import LinearSE3ErrorDynamics, evaluation
@@ -346,32 +285,6 @@ def _main_se3():
     env.prime(1200, K_init, 1, rng, lti)
     print('prime time:', time.time() - start_time)
 
-def _main():
-    import examples
-    A_star, B_star = examples.unstable_laplacian_dynamics()
-
-    # define costs
-    Q = 1e-3 * np.eye(3)
-    R = np.eye(3)
-
-    # initial controller
-    _, K_init = utils.dlqr(A_star, B_star, 1e-3*np.eye(3), np.eye(3))
-
-    rng = np.random
-
-    env = OFUStrategy(Q=Q,
-                      R=R,
-                      A_star=A_star,
-                      B_star=B_star,
-                      sigma_w=0,
-                      reg=1e-5,
-                      actual_error_multiplier=1, 
-                      rls_lam=None)
-
-    env.reset(rng)
-    env.prime(100, K_init, 0.1, rng)
-    for idx in range(500):
-        env.step(rng)
 
 if __name__ == '__main__':
     logging.basicConfig(level=logging.INFO)

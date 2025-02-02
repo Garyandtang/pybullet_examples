@@ -1,34 +1,40 @@
 import control as ct
-import numpy as np
-from adaptive_control_SE3.lie_utils import *
+from utilsStuff.lie_utils import *
 from planner.SE3_planner import SE3Planner
 from utilsStuff.enum_class import TrajType
 from utilsStuff.utils import generate_random_positive_definite_matrix, is_positive_definite
 from environments.numerical_simulator.single_rigid_body_simulator import SingleRigidBodySimulator
-from manifpy import SE3, SO3, SE3Tangent, SO3Tangent
+from manifpy import SE3
 import matplotlib.pyplot as plt
 class LinearSE3ErrorDynamics:
-    def __init__(self, fixed_param=False):
-        self.fixed_param = fixed_param
-        self.v = np.array([2, 0, 0.2])
-        self.w = np.array([0, 0, 1])
-        self.system_init()
+    def __init__(self, config=None):
+        if config is None:
+            config = {'fixed_param': False,
+                      'I': np.array([[1, 0.2, 0.1],
+                                         [0.2, 1, 0.2],
+                                         [0.1, 0.2, 1]]),
+                      'm': 2,
+                      'v': np.array([2, 0, 0.2]),
+                      'w': np.array([0, 0, 1])}
+        self.fixed_param = config['fixed_param']
+        I = config['I']
+        m = config['m']
+        self.v = config['v']
+        self.w = config['w']
+
+        self.system_init(I=I, m=m)
         self.controller_init()
-        # self.get_ground_truth_control()
 
 
-    def system_init(self, I = 2 * np.array([[1, 0.2, 0.1],
+    def system_init(self, I = np.array([[1, 0.2, 0.1],
                                [0.2, 1, 0.2],
-                               [0.1, 0.2, 1]]), m = 2 * 2):
+                               [0.1, 0.2, 1]]), m = 2):
         if self.fixed_param:
-
             self.I = I
             self.m = m
         else:
-            self.I = np.array([[1, 0.2, 0.1],
-                               [0.2, 1, 0.2],
-                               [0.1, 0.2, 1]]) + 0.1 * generate_random_positive_definite_matrix(3)
-            self.m = 2.0 + 1 * np.random.rand()
+            self.I = I + 0.1 * generate_random_positive_definite_matrix(3)
+            self.m = m + 1 * np.random.rand()
 
         assert is_positive_definite(self.I)
         assert self.m > 0
@@ -69,14 +75,19 @@ class LinearSE3ErrorDynamics:
         self.v = v
         self.w = w
 
-    def reset(self, fixed_param, I, m):
-        self.fixed_param = fixed_param
-        self.system_init(I, m)
+    def reset(self, config):
+        self.fixed_param = config['fixed_param']
+        I = config['I']
+        m = config['m']
+        self.v = config['v']
+        self.w = config['w']
+
+        self.system_init(I=I, m=m)
         self.controller_init()
 
     def update_controller(self, K):
         self.K0 = K
-def evaluation(isPlot=False, lti=LinearSE3ErrorDynamics(True), config=None, the_init_state=None):
+def evaluation(isPlot=False, lti=LinearSE3ErrorDynamics(), config=None, robot_init_state=None):
     linear_vel = lti.v
     angular_vel = lti.w
     config = {'type': TrajType.CONSTANT,
@@ -90,11 +101,10 @@ def evaluation(isPlot=False, lti=LinearSE3ErrorDynamics(True), config=None, the_
     simulator = SingleRigidBodySimulator(dt)
     init_pos = np.array([0, 0, 0])
     init_quat = np.array([0, 0, 0, 1])
-    # init_state = np.hstack([init_pos, init_quat, np.zeros(6)])
-    if the_init_state is None:
+    if robot_init_state is None:
         init_state = np.hstack([init_pos, init_quat, angular_vel, linear_vel])
     else:
-        init_state = the_init_state
+        init_state = robot_init_state
 
     simulator.set_init_state(init_state)
 
@@ -138,5 +148,14 @@ def evaluation(isPlot=False, lti=LinearSE3ErrorDynamics(True), config=None, the_
 
 
 if __name__ == '__main__':
-    evaluation(True)
+    lti_config = {'fixed_param': True,
+                  'I': 2 * np.array([[1, 0.2, 0.1],
+                                 [0.2, 1, 0.2],
+                                 [0.1, 0.2, 1]]),
+                  'm': 2 * 2,
+                  'v': np.array([2, 0, 0.2]),
+                  'w': np.array([0, 0, 1])}
+    lti = LinearSE3ErrorDynamics(lti_config)
+    evaluation(True, lti)
+
 
