@@ -76,7 +76,7 @@ class LinearSE3ErrorDynamics:
 
     def update_controller(self, K):
         self.K0 = K
-def evaluation(isPlot=False, lti=LinearSE3ErrorDynamics(True), config=None):
+def evaluation(isPlot=False, lti=LinearSE3ErrorDynamics(True), config=None, the_init_state=None):
     linear_vel = lti.v
     angular_vel = lti.w
     config = {'type': TrajType.CONSTANT,
@@ -91,7 +91,10 @@ def evaluation(isPlot=False, lti=LinearSE3ErrorDynamics(True), config=None):
     init_pos = np.array([0, 0, 0])
     init_quat = np.array([0, 0, 0, 1])
     # init_state = np.hstack([init_pos, init_quat, np.zeros(6)])
-    init_state = np.hstack([init_pos, init_quat, angular_vel, linear_vel])
+    if the_init_state is None:
+        init_state = np.hstack([init_pos, init_quat, angular_vel, linear_vel])
+    else:
+        init_state = the_init_state
 
     simulator.set_init_state(init_state)
 

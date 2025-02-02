@@ -12,6 +12,11 @@ import time
 from scipy.spatial.transform import Rotation  # 直接导入 Rotation
 
 def single_test():
+    init_pos = np.array([0.4, 0, 0])
+    init_quat = np.array([0, 0, 0, 1])
+    init_w = np.array([0, 0, 0])
+    init_v = np.array([0, 0, 0])
+    init_state = np.hstack([init_pos, init_quat, init_w, init_v])
     robot = SingleRigidBodySimulator()
     I_star, m_star = robot.get_true_I_m()
     lti = LinearSE3ErrorDynamics(fixed_param=True)
@@ -23,7 +28,7 @@ def single_test():
                         'nTraj': 301}}
     planner = SE3Planner(config)
     ref_SE3, ref_twist, dt = planner.get_traj()
-    init_traj, _ = evaluation(False, lti, config)
+    init_traj, _ = evaluation(False, lti, config, init_state)
     A = lti.A
     B = lti.B
     Q = lti.Q
@@ -43,7 +48,7 @@ def single_test():
     I_hat = ourEnv.I_hat
     m_hat = ourEnv.m_hat
     lti.reset(fixed_param=True, I=I_hat, m=m_hat)
-    adaptive_traj, _ = evaluation(False, lti, config)
+    adaptive_traj, _ = evaluation(False, lti, config, init_state)
 
     # Function to plot coordinate frames
     def plot_frames(ax, traj, color, step=30, axis_length=0.1):
@@ -83,8 +88,8 @@ def single_test():
     ax1.set_title('Reference vs Initial Trajectory')
 
     # Save the first plot
-    fig1.savefig('data/ref_vs_init_traj.png', dpi=300, bbox_inches='tight')
-    print("Saved ref_vs_init_traj.png")
+    fig1.savefig('data/ref_vs_init_traj.jpg', dpi=300)
+    print("Saved ref_vs_init_traj.jpg")
 
     # Plot 2: ref_SE3 and adaptive_traj
     fig2, ax2 = plt.subplots(subplot_kw={'projection': '3d'})
@@ -100,9 +105,9 @@ def single_test():
     ax2.legend(fontsize=10)
     ax2.set_title('Reference vs Adaptive Trajectory')
 
-    # # Save the second plot
-    # fig2.savefig('data/ref_vs_adaptive_traj.png', dpi=300, bbox_inches='tight')
-    # print("Saved ref_vs_adaptive_traj.png")
+    # Save the second plot
+    fig2.savefig('data/ref_vs_adaptive_traj.jpg', dpi=300)
+    print("Saved ref_vs_adaptive_traj.jpg")
 
     # Show the plots (optional)
     plt.show()
