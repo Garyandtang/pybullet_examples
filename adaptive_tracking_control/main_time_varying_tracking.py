@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 import scipy
 from manifpy import SE2, SE2Tangent, SO2, SO2Tangent
 from planner.ref_traj_generator import TrajGenerator
-from utils.enum_class import TrajType, ControllerType, LiniearizationType
+from utilsStuff.enum_class import TrajType, ControllerType, LiniearizationType
 from environments.wheeled_mobile_robot.turtlebot.turtlebot import Turtlebot
 from environments.numerical_simulator.WMR_simulator import WMRSimulator
 from data_driven_FBC import LTI, calculate_r_l

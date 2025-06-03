@@ -5,315 +5,348 @@ from planner.ref_traj_generator import TrajGenerator
 from matplotlib import ticker
 from adaptive_lqr.ts import TSStrategy
 from adaptive_lqr.ofu import OFUStrategy
-def MonteCarlo():
-    # get reference trajectory
+
+# Constants
+FONT_SIZE = 16
+LINE_WIDTH = 2
+TRAJ_LENGTH = 300
+DT = 0.02
+NUM_SIMULATIONS = 5
+NUM_ITERATIONS = 3
+NUM_TRAINING_DATA = 1000
+
+
+def generate_reference_trajectory():
+    """Generate circular reference trajectory for the simulation."""
     ref_sysm = LTI()
-    traj_config = {'type': TrajType.CIRCLE,
-                     'param': {'start_state': np.zeros((3,)),
-                              'linear_vel': ref_sysm.v,
-                              'angular_vel': ref_sysm.w,
-                              'nTraj': 299,
-                              'dt': 0.02}}
+    traj_config = {
+        'type': TrajType.CIRCLE,
+        'param': {
+            'start_state': np.zeros((3,)),
+            'linear_vel': ref_sysm.v,
+            'angular_vel': ref_sysm.w,
+            'nTraj': TRAJ_LENGTH - 1,
+            'dt': DT
+        }
+    }
     traj_gen = TrajGenerator(traj_config)
     ref_state, ref_control, dt = traj_gen.get_traj()
-    ref_x = ref_state[0, :]
-    ref_y = ref_state[1, :]
-    totalSim = 5
-    iteration = 3
-    num_of_data = 2000
-    y_max = 0.8
-    y_min = -0.3
-    K0_container = np.zeros((totalSim, iteration + 1))
-    K1_container = np.zeros((totalSim, iteration + 1))
-    K2_container = np.zeros((totalSim, iteration + 1))
-    K3_container = np.zeros((totalSim, iteration + 1))
-    K4_container = np.zeros((totalSim, iteration + 1))
-    K5_container = np.zeros((totalSim, iteration + 1))
-    k0_container = np.zeros((totalSim, iteration + 1))
-    k1_container = np.zeros((totalSim, iteration + 1))
-    r_container = np.zeros((totalSim, iteration+1))
-    l_container = np.zeros((totalSim, iteration+1))
-    nTraj = 300
-    x_trained_container = np.zeros((totalSim, nTraj-1))
-    y_trained_container = np.zeros((totalSim, nTraj-1))
-
-    x_init_container = np.zeros((totalSim, nTraj - 1))
-    y_init_container = np.zeros((totalSim, nTraj - 1))
-
-    init_x_error = np.zeros((totalSim, ))
-    init_y_error = np.zeros((totalSim, ))
-    learned_x_error = np.zeros((totalSim, ))
-    learned_y_error = np.zeros((totalSim, ))
-
-    # adaptive lqr container
-    r_container_ts = np.zeros(totalSim)
-    l_container_ts = np.zeros(totalSim)
-    r_container_ofu = np.zeros(totalSim)
-    l_container_ofu = np.zeros(totalSim)
-
-    x_error_container_ts = np.zeros(totalSim)
-    y_error_container_ts = np.zeros(totalSim)
-    x_error_container_ofu = np.zeros(totalSim)
-    y_error_container_ofu = np.zeros(totalSim)
+    return ref_state[0, :], ref_state[1, :]  # ref_x, ref_y
 
 
-    totalFail = 0
-    i = 0
+def initialize_containers():
+    """Initialize all data containers for the simulation."""
+    containers = {
+        # Parameter containers
+        'K_containers': [np.zeros((NUM_SIMULATIONS, NUM_ITERATIONS + 1)) for _ in range(6)],
+        'k_containers': [np.zeros((NUM_SIMULATIONS, NUM_ITERATIONS + 1)) for _ in range(2)],
+        'r_container': np.zeros((NUM_SIMULATIONS, NUM_ITERATIONS + 1)),
+        'l_container': np.zeros((NUM_SIMULATIONS, NUM_ITERATIONS + 1)),
+
+        # Trajectory containers
+        'x_trained': np.zeros((NUM_SIMULATIONS, TRAJ_LENGTH - 1)),
+        'y_trained': np.zeros((NUM_SIMULATIONS, TRAJ_LENGTH - 1)),
+        'x_init': np.zeros((NUM_SIMULATIONS, TRAJ_LENGTH - 1)),
+        'y_init': np.zeros((NUM_SIMULATIONS, TRAJ_LENGTH - 1)),
+
+        # Error containers
+        'init_errors': {
+            'x': np.zeros(NUM_SIMULATIONS),
+            'y': np.zeros(NUM_SIMULATIONS)
+        },
+        'learned_errors': {
+            'x': np.zeros(NUM_SIMULATIONS),
+            'y': np.zeros(NUM_SIMULATIONS)
+        },
+
+        # Adaptive LQR containers
+        'baseline_results': {
+            'ts': {'r': np.zeros(NUM_SIMULATIONS), 'l': np.zeros(NUM_SIMULATIONS),
+                   'x_error': np.zeros(NUM_SIMULATIONS), 'y_error': np.zeros(NUM_SIMULATIONS)},
+            'ofu': {'r': np.zeros(NUM_SIMULATIONS), 'l': np.zeros(NUM_SIMULATIONS),
+                    'x_error': np.zeros(NUM_SIMULATIONS), 'y_error': np.zeros(NUM_SIMULATIONS)}
+        }
+    }
+    return containers
+
+
+def setup_adaptive_strategy(strategy_type, lti, K_init, rng, num_data):
+    """Setup and prime either TS or OFU adaptive strategy."""
+    strategy_class = TSStrategy if strategy_type == 'ts' else OFUStrategy
+    strategy = strategy_class(
+        Q=lti.Q,
+        R=lti.R,
+        A_star=lti.A_ground_truth,
+        B_star=lti.B_ground_truth,
+        sigma_w=0,
+        reg=1e-5,
+        tau=500 if strategy_type == 'ts' else None,
+        actual_error_multiplier=1,
+        rls_lam=None
+    )
+    strategy.reset(rng)
+    strategy.prime(num_data, K_init, 0.1, rng, lti)
+    return strategy
+
+
+def evaluate_strategy(strategy, lti, lti_eval, ref_x, ref_y, n_traj):
+    """Evaluate the performance of a given strategy."""
+    A_hat = strategy.estimated_A
+    B_hat = strategy.estimated_B
+    lti_eval.K0, lti_eval.k0 = lti.calculate_K_k(lti.A, B_hat)
+    x_traj, y_traj, _, _ = evaluation(lti_eval, n_traj)
+    x_error = np.linalg.norm(x_traj - ref_x)
+    y_error = np.linalg.norm(y_traj - ref_y)
+    return x_traj, y_traj, x_error, y_error, strategy.estimated_r, strategy.estimated_l
+
+
+def run_learning_iteration(lti, iteration, containers, sim_idx):
+    """Run a single learning iteration and update containers."""
+    start_time = time.time()
+    K, k, B, successful = learning(lti, 2)
+    learning_time = time.time() - start_time
+
+    if not successful:
+        return False, learning_time
+
+    r, l = calculate_r_l(B, lti.dt)
+
+    # Update parameter containers
+    containers['r_container'][sim_idx, iteration + 1] = r
+    containers['l_container'][sim_idx, iteration + 1] = l
+
+    # Update K matrix containers
+    for i in range(6):
+        containers['K_containers'][i][sim_idx, iteration + 1] = K[i // 3, i % 3]
+
+    # Update k vector containers
+    containers['k_containers'][0][sim_idx, iteration + 1] = k[0]
+    containers['k_containers'][1][sim_idx, iteration + 1] = k[1]
+
+    return True, learning_time
+
+
+def create_boxplot(data, labels, ylabel, title, colors, save_path):
+    """Create and save a boxplot with given parameters."""
+    plt.figure()
+    plt.grid(True)
+    bplot = plt.boxplot(data, showfliers=False, patch_artist=True,
+                        boxprops={'facecolor': 'none', 'alpha': 0.5})
+    plt.xticks(range(1, len(labels) + 1), labels, fontsize=FONT_SIZE)
+    plt.ylabel(ylabel, fontsize=FONT_SIZE)
+    plt.title(title, fontsize=FONT_SIZE)
+
+    for patch, color in zip(bplot['boxes'], colors):
+        patch.set_facecolor(color)
+
+    plt.savefig(save_path)
+    plt.show()
+
+
+def save_trajectory_plot(x_data, y_data, xlabel, ylabel, title, save_path):
+    """Create and save a trajectory plot."""
+    plt.figure()
+    plt.grid(True)
+    plt.xticks(fontsize=FONT_SIZE - 2)
+    plt.yticks(fontsize=FONT_SIZE - 2)
+    plt.plot(x_data.T, y_data.T, linewidth=LINE_WIDTH)
+    plt.xlabel(xlabel, fontsize=FONT_SIZE)
+    plt.ylabel(ylabel, fontsize=FONT_SIZE)
+    plt.title(title)
+    plt.savefig(save_path)
+    plt.show()
+
+
+def save_parameter_plot(iterations, data, xlabel, ylabel, title, save_path):
+    """Create and save a parameter evolution plot."""
+    plt.figure()
+    plt.grid(True)
+    plt.xticks(fontsize=FONT_SIZE - 2)
+    plt.yticks(fontsize=FONT_SIZE - 2)
+    plt.plot(iterations, data.T, linewidth=LINE_WIDTH)
+    plt.xlabel(xlabel, fontsize=FONT_SIZE)
+    plt.ylabel(ylabel, fontsize=FONT_SIZE)
+    plt.title(title)
+    plt.savefig(save_path)
+    plt.show()
+
+
+def save_simulation_data(data_path, containers):
+    """Save all simulation data to files."""
+    np.save(os.path.join(data_path, 'r_container.npy'), containers['r_container'])
+    np.save(os.path.join(data_path, 'l_container.npy'), containers['l_container'])
+    np.save(os.path.join(data_path, 'x_init_container.npy'), containers['x_init'])
+    np.save(os.path.join(data_path, 'y_init_container.npy'), containers['y_init'])
+    np.save(os.path.join(data_path, 'x_trained_container.npy'), containers['x_trained'])
+    np.save(os.path.join(data_path, 'y_trained_container.npy'), containers['y_trained'])
+
+
+def print_statistics(containers):
+    """Print summary statistics from the simulation."""
+    # Print r statistics
+    r_mean = np.mean(containers['r_container'][:, -1])
+    r_std = np.std(containers['r_container'][:, -1])
+    print(f"r_mean(ours): {r_mean:.4f}")
+    print(f"r_std(ours): {r_std:.4f}")
+
+    # Print l statistics
+    l_mean = np.mean(containers['l_container'][:, -1])
+    l_std = np.std(containers['l_container'][:, -1])
+    print(f"l_mean(ours): {l_mean:.4f}")
+    print(f"l_std(ours): {l_std:.4f}")
+
+
+def MonteCarlo():
+    """Main Monte Carlo simulation function."""
+    # Setup reference trajectory and containers
+    ref_x, ref_y = generate_reference_trajectory()
+    containers = initialize_containers()
+
+    # Create data directory
+    dirpath = os.getcwd()
+    data_path = os.path.join(dirpath, "data", "monte_carlo")
+    os.makedirs(data_path, exist_ok=True)
+
+    # Simulation parameters
+    total_failures = 0
     avg_learning_time = 0
     lti_for_evaluation = LTI()
-    while i < totalSim:
-        # initialize the system
+    rng = np.random
+
+    # Main simulation loop
+    for sim_idx in range(NUM_SIMULATIONS):
         lti = LTI()
-        Q = lti.Q
-        R = lti.R
-        A_star = lti.A_ground_truth
-        B_star = lti.B_ground_truth
-        K_init = lti.K0
 
-        # ofu training
-        rng = np.random
-        ofu_env = OFUStrategy(Q=Q,
-                          R=R,
-                          A_star=A_star,
-                          B_star=B_star,
-                          sigma_w=0,
-                          reg=1e-5,
-                          actual_error_multiplier=1,
-                          rls_lam=None)
-        ofu_env.reset(rng)
-        ofu_env.prime(num_of_data, K_init, 0.1, rng, lti)
-        A_hat = ofu_env.estimated_A
-        B_hat = ofu_env.estimated_B
-        lti_for_evaluation.K0, lti_for_evaluation.k0 = lti.calculate_K_k(lti.A, B_hat)
-        r_container_ofu[i], l_container_ofu[i] = ofu_env.estimated_r, ofu_env.estimated_l
-        ofu_x_container, ofu_y_container, _ , _= evaluation(lti_for_evaluation, nTraj)
-        x_error_container_ofu[i] = np.linalg.norm(ofu_x_container - ref_x)
-        y_error_container_ofu[i] = np.linalg.norm(ofu_y_container - ref_y)
+        # Run OFU strategy
+        ofu_strategy = setup_adaptive_strategy('ofu', lti, lti.K0, rng, NUM_TRAINING_DATA)
+        (ofu_x, ofu_y,
+         containers['baseline_results']['ofu']['x_error'][sim_idx],
+         containers['baseline_results']['ofu']['y_error'][sim_idx],
+         containers['baseline_results']['ofu']['r'][sim_idx],
+         containers['baseline_results']['ofu']['l'][sim_idx]) = evaluate_strategy(
+            ofu_strategy, lti, lti_for_evaluation, ref_x, ref_y, TRAJ_LENGTH)
 
-        # ts training
-        ts_env = TSStrategy(Q=Q,
-                         R=R,
-                         A_star=A_star,
-                         B_star=B_star,
-                         sigma_w=0,
-                         reg=1e-5,
-                         tau=500,
-                         actual_error_multiplier=1,
-                         rls_lam=None)
-        ts_env.reset(rng)
-        ts_env.prime(num_of_data, K_init, 0.1, rng, lti)
-        A_hat = ts_env.estimated_A
-        B_hat = ts_env.estimated_B
-        lti_for_evaluation.K0, lti_for_evaluation.k0 = lti.calculate_K_k(lti.A, B_hat)
-        r_container_ts[i], l_container_ts[i] = ts_env.estimated_r, ts_env.estimated_l
-        ts_x_container, ts_y_container, _, _ = evaluation(lti_for_evaluation, nTraj)
-        x_error_container_ts[i] = np.linalg.norm(ts_x_container - ref_x)
-        y_error_container_ts[i] = np.linalg.norm(ts_y_container - ref_y)
+        # Run TS strategy
+        ts_strategy = setup_adaptive_strategy('ts', lti, lti.K0, rng, NUM_TRAINING_DATA)
+        (ts_x, ts_y,
+         containers['baseline_results']['ts']['x_error'][sim_idx],
+         containers['baseline_results']['ts']['y_error'][sim_idx],
+         containers['baseline_results']['ts']['r'][sim_idx],
+         containers['baseline_results']['ts']['l'][sim_idx]) = evaluate_strategy(
+            ts_strategy, lti, lti_for_evaluation, ref_x, ref_y, TRAJ_LENGTH)
 
-        # lti.K0 = ofu_env.learned_K
-        # lti.k0 = ofu_env.learned_k
-        x_init_container[i, :], y_init_container[i, :], _, _ = evaluation(lti, nTraj)
-        # calculate the initial error
-        init_x_error[i] = np.linalg.norm(x_init_container[i, :] - ref_x)
-        init_y_error[i] = np.linalg.norm(y_init_container[i, :] - ref_y)
-        r_container[i, 0], l_container[i, 0] = calculate_r_l(lti.B, lti.dt)
+        # Store initial trajectory and errors
+        containers['x_init'][sim_idx, :], containers['y_init'][sim_idx, :], _, _ = evaluation(lti, TRAJ_LENGTH)
+        containers['init_errors']['x'][sim_idx] = np.linalg.norm(containers['x_init'][sim_idx, :] - ref_x)
+        containers['init_errors']['y'][sim_idx] = np.linalg.norm(containers['y_init'][sim_idx, :] - ref_y)
+
+        # Store initial parameters
+        containers['r_container'][sim_idx, 0], containers['l_container'][sim_idx, 0] = calculate_r_l(lti.B, lti.dt)
         init_K = lti.K_ini
         init_k = lti.k_ini
-        K0_container[i, 0] = init_K[0, 0]
-        K1_container[i, 0] = init_K[0, 1]
-        K2_container[i, 0] = init_K[0, 2]
-        K3_container[i, 0] = init_K[1, 0]
-        K4_container[i, 0] = init_K[1, 1]
-        K5_container[i, 0] = init_K[1, 2]
-        k0_container[i, 0] = init_k[0]
-        k1_container[i, 0] = init_k[1]
-        optimal_K = lti.K_ground_truth
-        optimal_k = lti.k_ground_truth
-        for j in range(iteration):
-            start_time = time.time()
-            K, k, B, successful = learning(lti, 2)
-            learning_time = time.time() - start_time
-            avg_learning_time += learning_time
-            print("learning time: ", learning_time)
+
+        for i in range(6):
+            containers['K_containers'][i][sim_idx, 0] = init_K[i // 3, i % 3]
+        containers['k_containers'][0][sim_idx, 0] = init_k[0]
+        containers['k_containers'][1][sim_idx, 0] = init_k[1]
+
+        # Learning iterations
+        for iteration in range(NUM_ITERATIONS):
+            successful, iter_time = run_learning_iteration(lti, iteration, containers, sim_idx)
+            avg_learning_time += iter_time
+
             if not successful:
-                print("failed to learn")
-                totalFail += 1
-                i = i - 1
+                print("Failed to learn")
+                total_failures += 1
+                sim_idx -= 1  # Repeat this simulation
                 break
-            r, l = calculate_r_l(B, lti.dt)
-            K0_container[i, j + 1] = K[0, 0]  # - optimal_K[0, 0]
-            K1_container[i, j + 1] = K[0, 1]  # - optimal_K[0, 1]
-            K2_container[i, j + 1] = K[0, 2]  # - optimal_K[0, 2]
-            K3_container[i, j + 1] = K[1, 0]  # - optimal_K[1, 0]
-            K4_container[i, j + 1] = K[1, 1]  # - optimal_K[1, 1]
-            K5_container[i, j + 1] = K[1, 2]  # - optimal_K[1, 2]
-            k0_container[i, j + 1] = k[0]  # - optimal_k[0]
-            k1_container[i, j + 1] = k[1]  # - optimal_k[1]
-            r_container[i, j+1] = r
-            l_container[i, j+1] = l
 
-        x_trained_container[i, :], y_trained_container[i, :], _, _ = evaluation(lti, nTraj)
-        # calculate the learned error
-        learned_x_error[i] = np.linalg.norm(x_trained_container[i, :] - ref_x)
-        learned_y_error[i] = np.linalg.norm(y_trained_container[i, :] - ref_y)
-        i = i + 1
+        # Store learned trajectory and errors
+        containers['x_trained'][sim_idx, :], containers['y_trained'][sim_idx, :], _, _ = evaluation(lti, TRAJ_LENGTH)
+        containers['learned_errors']['x'][sim_idx] = np.linalg.norm(containers['x_trained'][sim_idx, :] - ref_x)
+        containers['learned_errors']['y'][sim_idx] = np.linalg.norm(containers['y_trained'][sim_idx, :] - ref_y)
 
-    # calculate the average learning time
-    avg_learning_time = avg_learning_time / (totalSim * iteration)
-    print("avg learning time: ", avg_learning_time)
-    font_size = 16
-    line_width = 2
-    # dirpath
-    dirpath = os.getcwd()
-    data_path = os.path.join(dirpath, "data", "mote_carlo")
-    if not os.path.exists(data_path):
-        os.makedirs(data_path)
+    # Calculate average learning time
+    avg_learning_time /= (NUM_SIMULATIONS * NUM_ITERATIONS)
+    print(f"Average learning time: {avg_learning_time:.2f} seconds")
 
-    # box plot initial r and final r
-    r_init_container = r_container[:, 0]
-    r_final_container = r_container[:, -1]
-    plt.figure()
-    plt.grid(True)
-    # box plot with color
-    datas = [r_init_container, r_container_ofu, r_container_ts, r_final_container]
-    colors = [[0.4940, 0.1840, 0.5560], [0.8500, 0.3250, 0.0980], [0.9290, 0.6940, 0.1250], [0.9290, 0.6940, 0.1250]]
-    bplot = plt.boxplot(datas, showfliers=False, patch_artist=True, boxprops={'facecolor': 'none', 'alpha': 0.5})
-    plt.xticks([1, 2, 3, 4], ['initial', 'ofu', 'ts', 'our'], fontsize=font_size)
-    plt.ylabel('length ($m$)', fontsize=font_size)
-    plt.title('radium $r$', fontsize=font_size)
-    ax = plt.gca()
-    ax.yaxis.set_major_formatter(ticker.FormatStrFormatter('%0.3f'))
-    for patch, color in zip(bplot['boxes'], colors):
-        patch.set_facecolor(color)
-    # save bplot
-    plt.savefig(os.path.join(data_path, "r_boxplot_{}.jpg".format(num_of_data)))
-    plt.show()
+    # Plotting section
+    colors = [[0.4940, 0.1840, 0.5560], [0.8500, 0.3250, 0.0980],
+              [0.9290, 0.6940, 0.1250], [0.9290, 0.6940, 0.1250]]
 
-    # box plot initial l and final l
-    l_init_container = l_container[:, 0]
-    l_final_container = l_container[:, -1]
-    plt.figure()
-    plt.grid(True)
-    colors = [[0.4940, 0.1840, 0.5560], [0.8500, 0.3250, 0.0980], [0.9290, 0.6940, 0.1250], [0.9290, 0.6940, 0.1250]]
-    bplot = plt.boxplot([l_init_container, l_container_ofu, l_container_ts, l_final_container],showfliers=False, patch_artist=True, boxprops={'facecolor': 'none', 'alpha': 0.5})
-    plt.xticks([1, 2, 3, 4], ['initial', 'ofu', 'ts', 'our'], fontsize=font_size)
-    plt.title('body length $l$', fontsize=font_size)
-    for patch, color in zip(bplot['boxes'], colors):
-        patch.set_facecolor(color)
-    plt.ylabel('length ($m$)', fontsize=font_size)
+    # Box plots for parameters
+    create_boxplot(
+        [containers['r_container'][:, 0], containers['baseline_results']['ofu']['r'],
+         containers['baseline_results']['ts']['r'], containers['r_container'][:, -1]],
+        ['initial', 'ofu', 'ts', 'our'],
+        'length (m)',
+        'radius r',
+        colors,
+        os.path.join(data_path, f"r_boxplot_{NUM_TRAINING_DATA}.jpg")
+    )
 
-    plt.savefig(os.path.join(data_path, "l_boxplot_{}.jpg".format(num_of_data)))
-    plt.show()
+    create_boxplot(
+        [containers['l_container'][:, 0], containers['baseline_results']['ofu']['l'],
+         containers['baseline_results']['ts']['l'], containers['l_container'][:, -1]],
+        ['initial', 'ofu', 'ts', 'our'],
+        'length (m)',
+        'body length l',
+        colors,
+        os.path.join(data_path, f"l_boxplot_{NUM_TRAINING_DATA}.jpg")
+    )
 
-    # box plot initial x error and final x error
-    x_init_error_container = init_x_error
-    x_final_error_container = learned_x_error
-    plt.figure()
-    plt.grid(True)
-    colors = [[0.4940, 0.1840, 0.5560], [0.8500, 0.3250, 0.0980], [0.9290, 0.6940, 0.1250], [0.9290, 0.6940, 0.1250]]
-    bplot = plt.boxplot([x_init_error_container, x_error_container_ofu, x_error_container_ts,  x_final_error_container],showfliers=False, patch_artist=True, boxprops={'facecolor': 'none', 'alpha': 0.5})
-    plt.xticks([1, 2, 3, 4], ['initial', 'ofu', 'ts', 'our'], fontsize=font_size)
-    plt.title('$x^{p}$ error', fontsize=font_size)
-    for patch, color in zip(bplot['boxes'], colors):
-        patch.set_facecolor(color)
+    # Box plots for errors
+    create_boxplot(
+        [containers['init_errors']['x'], containers['baseline_results']['ofu']['x_error'],
+         containers['baseline_results']['ts']['x_error'], containers['learned_errors']['x']],
+        ['initial', 'ofu', 'ts', 'our'],
+        'Mean Square Error (m)',
+        'x^p error',
+        colors,
+        os.path.join(data_path, f"x_error_boxplot_{NUM_TRAINING_DATA}.jpg")
+    )
 
-    plt.ylabel('Mean Square Error ($m$)', fontsize=font_size)
+    create_boxplot(
+        [containers['init_errors']['y'], containers['baseline_results']['ofu']['y_error'],
+         containers['baseline_results']['ts']['y_error'], containers['learned_errors']['y']],
+        ['initial', 'ofu', 'ts', 'our'],
+        'Mean Square Error (m)',
+        'y^p error',
+        colors,
+        os.path.join(data_path, f"y_error_boxplot_{NUM_TRAINING_DATA}.jpg")
+    )
 
-    plt.savefig(os.path.join(data_path, "x_error_boxplot_{}.jpg".format(num_of_data)))
-    plt.show()
+    # Trajectory plots
+    save_trajectory_plot(
+        containers['x_init'], containers['y_init'],
+        "x (m)", "y (m)", "Initial Trajectories",
+        os.path.join(data_path, "init_trajectory.jpg")
+    )
 
-    # box plot initial y error and final y error
-    y_init_error_container = init_y_error
-    y_final_error_container = learned_y_error
-    plt.figure()
-    plt.grid(True)
-    colors = [[0.4940, 0.1840, 0.5560], [0.8500, 0.3250, 0.0980], [0.9290, 0.6940, 0.1250], [0.9290, 0.6940, 0.1250]]
-    bplot = plt.boxplot([y_init_error_container, y_error_container_ofu, y_error_container_ts, y_final_error_container],showfliers=False, patch_artist=True, boxprops={'facecolor': 'none', 'alpha': 0.5})
-    plt.xticks([1, 2, 3, 4], ['initial', 'ofu', 'ts', 'our'], fontsize=font_size)
-    plt.title('$y^{p}$ error', fontsize=font_size)
-    for patch, color in zip(bplot['boxes'], colors):
-        patch.set_facecolor(color)
+    save_trajectory_plot(
+        containers['x_trained'], containers['y_trained'],
+        "x (m)", "y (m)", "Learned Trajectories",
+        os.path.join(data_path, "trained_trajectory.jpg")
+    )
 
-    plt.ylabel('Mean Square Error ($m$)', fontsize=font_size)
-    plt.savefig(os.path.join(data_path, "y_error_boxplot_{}.jpg".format(num_of_data)))
-    plt.show()
+    # Parameter evolution plots
+    iterations = np.arange(0, NUM_ITERATIONS + 1, 1)
+    save_parameter_plot(
+        iterations, containers['r_container'],
+        "iteration", "r (m)", "Radius Evolution",
+        os.path.join(data_path, "trained_r.jpg")
+    )
 
+    save_parameter_plot(
+        iterations, containers['l_container'],
+        "iteration", "l (m)", "Body Length Evolution",
+        os.path.join(data_path, "trained_l.jpg")
+    )
 
-    # plot init x and y in the same figure
-    plt.figure()
-    plt.grid(True)
-
-
-    plt.xticks(fontsize=font_size-2)
-    plt.yticks(fontsize=font_size-2)
-    plt.plot(x_init_container.T, y_init_container.T, linewidth=line_width)
-    # plt.tight_layout()
-    plt.xlabel("$x~(m)$", fontsize=font_size)
-    plt.ylabel("$y~(m)$", fontsize=font_size)
-    name = "init_trajectory.jpg"
-    plt.savefig(os.path.join(data_path, name))
-    plt.show()
-
-    # plot trained x and y in the same figure
-    plt.figure()
-    plt.grid(True)
-    plt.xticks(fontsize=font_size-2)
-    plt.yticks(fontsize=font_size-2)
-    plt.plot(x_trained_container.T, y_trained_container.T, linewidth=line_width)
-    plt.xlabel("$x~(m)$", fontsize=font_size)
-    plt.ylabel("$y~(m)$", fontsize=font_size)
-    name = "trained_trajectory.jpg"
-    plt.savefig(os.path.join(data_path, name))
-    plt.show()
-
-    # plot r
-    x = np.arange(0, iteration+1, 1)
-    plt.figure()
-    # show grid
-    plt.grid(True)
-    plt.xticks(fontsize=font_size - 2)
-    plt.yticks(fontsize=font_size - 2)
-    plt.plot(x, r_container.T, linewidth=line_width)
-    plt.xlabel("iteration", fontsize=font_size)
-    plt.ylabel("$r~(m)$", fontsize=font_size)
-    name = "trained_r.jpg"
-    plt.savefig(os.path.join(data_path, name))
-    plt.show()
-
-    # plot l
-    plt.figure()
-    plt.grid(True)
-    plt.xticks(fontsize=font_size - 2)
-    plt.yticks(fontsize=font_size - 2)
-
-    plt.plot(x, l_container.T, linewidth=line_width)
-    plt.xlabel("iteration", fontsize=font_size)
-    plt.ylabel("$l~(m)$", fontsize=font_size)
-    name = "trained_l.jpg"
-    plt.savefig(os.path.join(data_path, name))
-    plt.show()
-
-    # calculate the mean and std of last r
-    r_mean = np.mean(r_container[:, -1])
-    r_std = np.std(r_container[:, -1])
-    print("r_mean(ours): ", r_mean)
-    print("r_std(ours): ", r_std)
-
-    # calculate the mean and std of last l
-    l_mean = np.mean(l_container[:, -1])
-    l_std = np.std(l_container[:, -1])
-    print("l_mean(ours): ", l_mean)
-    print("l_std(ours): ", l_std)
-
-    print("failed to learn: ", totalFail)
-    # save data
-    np.save('data/r_container.npy', r_container)
-    np.save('data/l_container.npy', l_container)
-    np.save('data/x_init_container.npy', x_init_container)
-    np.save('data/y_init_container.npy', y_init_container)
-    np.save('data/x_trained_container.npy', x_trained_container)
-    np.save('data/y_trained_container.npy', y_trained_container)
-
+    # Print statistics and save data
+    print_statistics(containers)
+    print(f"Total failures: {total_failures}")
+    save_simulation_data(data_path, containers)
 
 
 if __name__ == '__main__':

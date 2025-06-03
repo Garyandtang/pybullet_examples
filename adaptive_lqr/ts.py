@@ -131,33 +131,6 @@ class TSStrategy(AdaptiveMethod):
         ctrl_input = self._current_K.dot(state)
         return ctrl_input
 
-def _main():
-    import examples
-    A_star, B_star = examples.unstable_laplacian_dynamics()
-
-    # define costs
-    Q = 1e-3 * np.eye(3)
-    R = np.eye(3)
-
-    # initial controller
-    _, K_init = utils.dlqr(A_star, B_star, 1e-3*np.eye(3), np.eye(3))
-
-    rng = np.random
-
-    env = TSStrategy(Q=Q,
-                     R=R,
-                     A_star=A_star,
-                     B_star=B_star,
-                     sigma_w=1,
-                     reg=1e-5,
-                     tau=500,
-                     actual_error_multiplier=1, 
-                     rls_lam=None)
-
-    env.reset(rng)
-    env.prime(100, K_init, 0.1, rng)
-    for idx in range(500):
-        env.step(rng)
 
 def _main_wheeled_robot():
     from adaptive_tracking_control.main_single_learning import LTI

@@ -155,7 +155,7 @@ class OFUStrategy(AdaptiveMethod):
     """
 
     def __init__(self, Q, R, A_star, B_star, sigma_w, rls_lam,
-                 reg, actual_error_multiplier, num_restarts=0):
+                 reg, actual_error_multiplier, num_restarts=0, tau=None):
         super().__init__(Q, R, A_star, B_star, sigma_w, rls_lam)
         self._reg = reg
         self._actual_error_multiplier = actual_error_multiplier
@@ -254,25 +254,6 @@ class OFUStrategy(AdaptiveMethod):
         return self._current_K.dot(state)
 
 
-def _main():
-    import examples
-    A_star, B_star = examples.unstable_laplacian_dynamics()
-
-    # perturb Ahat, Bhat
-    eps_A = 0.1
-    eps_B = 0.1
-    Ahat = utils.sample_2_to_2_ball(Ahat, eps_A)
-    Bhat = utils.sample_2_to_2_ball(Bhat, eps_B)
-
-    Q = 1e-3 * np.eye(3)
-    R = np.eye(3)
-
-    Acur, Bcur = ofu_pgd(Q, R, Ahat, Bhat, eps_A, eps_B, step_size=1, max_iters=1000)
-
-    print("Acur")
-    print(Acur)
-    print("Bcur")
-    print(Bcur)
 
 def _main_wheeled_robot():
 
@@ -320,32 +301,7 @@ def _main_wheeled_robot():
 
     print(1)
 
-def _main():
-    import examples
-    A_star, B_star = examples.unstable_laplacian_dynamics()
 
-    # define costs
-    Q = 1e-3 * np.eye(3)
-    R = np.eye(3)
-
-    # initial controller
-    _, K_init = utils.dlqr(A_star, B_star, 1e-3*np.eye(3), np.eye(3))
-
-    rng = np.random
-
-    env = OFUStrategy(Q=Q,
-                      R=R,
-                      A_star=A_star,
-                      B_star=B_star,
-                      sigma_w=0,
-                      reg=1e-5,
-                      actual_error_multiplier=1, 
-                      rls_lam=None)
-
-    env.reset(rng)
-    env.prime(100, K_init, 0.1, rng)
-    for idx in range(500):
-        env.step(rng)
 
 if __name__ == '__main__':
     logging.basicConfig(level=logging.INFO)

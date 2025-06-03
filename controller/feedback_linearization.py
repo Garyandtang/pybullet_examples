@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 from manifpy import SE2, SE2Tangent, SO2, SO2Tangent
 import casadi as ca
 import math
-from utils.enum_class import WMRType, TrajType, ControllerType
+from utilsStuff.enum_class import WMRType, TrajType, ControllerType
 from planner.ref_traj_generator import TrajGenerator
 
 class FBLinearizationController:
